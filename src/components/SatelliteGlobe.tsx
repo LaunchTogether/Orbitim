@@ -1522,21 +1522,19 @@ export default function SatelliteGlobe() {
           pathColor={(path: any) => {
             if (path.isNadir) return 'rgba(34, 211, 238, 0.95)'; // Glowing cyan downlink
             if (path.isLaser) return 'rgba(168, 85, 247, 0.65)'; // Neon purple laser link
-            if (path.isPastOrbit) return 'rgba(239, 68, 68, 0.85)'; // Past orbit path (Red/Coral)
-            return 'rgba(59, 130, 246, 0.65)'; // Future orbit path (Blue/Slate)
+            if (path.isPastOrbit) return '#ff4d6d'; // Bright neon red/coral
+            return '#38bdf8'; // Bright neon cyan/blue (future path)
           }}
           pathStroke={(path: any) => {
             if (path.isNadir) return 2.2;
             if (path.isLaser) return 0.8;
-            if (path.isPastOrbit) return 1.5;
             return 1.5;
           }}
           pathResolution={30}
           pathDashLength={(path: any) => {
             if (path.isNadir) return 0.25;
             if (path.isLaser) return 0.05;
-            if (path.isPastOrbit) return 0; // Solid past path!
-            return 0.04;
+            return 0; // Solid paths for both past and future orbits
           }}
           pathDashGap={(path: any) => {
             if (path.isNadir) return 0.1;
@@ -1546,8 +1544,7 @@ export default function SatelliteGlobe() {
           pathDashAnimateTime={(path: any) => {
             if (path.isNadir) return 1200; // Fast descending downlink pulse
             if (path.isLaser) return 4000;
-            if (path.isPastOrbit) return 0; // Static
-            return 2500;
+            return 0; // Solid paths do not animate
           }}
 
           // Rings footprints
