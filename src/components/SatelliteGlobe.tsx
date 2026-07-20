@@ -26,35 +26,10 @@ const GROUPS = [
 
 
 
-// Pre-allocate custom 3D geometries for selected detailed models
-const starlinkBodyGeo = new THREE.BoxGeometry(0.8, 0.1, 1.2);
-const starlinkPanelGeo = new THREE.BoxGeometry(2.0, 0.02, 0.8);
-const starlinkConnectorGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.4);
-starlinkConnectorGeo.rotateZ(Math.PI / 2);
-
-const stationBodyGeo = new THREE.CylinderGeometry(0.3, 0.3, 3.2, 8);
-stationBodyGeo.rotateZ(Math.PI / 2);
-const stationPanelGeo = new THREE.BoxGeometry(1.4, 0.02, 2.6);
-
-const gpsBodyGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
-const gpsPanelGeo = new THREE.BoxGeometry(2.2, 0.02, 0.6);
-
-const defaultBodyGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-const defaultPanelGeo = new THREE.BoxGeometry(1.2, 0.02, 0.4);
-
-// Pre-allocate materials for satellite parts to keep FPS high
-const starlinkPanelMat = new THREE.MeshBasicMaterial({ color: '#22d3ee', transparent: true, opacity: 0.5, wireframe: true });
-const stationPanelMat = new THREE.MeshBasicMaterial({ color: '#fbbf24', transparent: true, opacity: 0.5, wireframe: true });
-const gpsPanelMat = new THREE.MeshBasicMaterial({ color: '#ef4444', transparent: true, opacity: 0.5, wireframe: true });
-const defaultPanelMat = new THREE.MeshBasicMaterial({ color: '#60a5fa', transparent: true, opacity: 0.5, wireframe: true });
-
-// All standard (unselected) satellites are represented as clean glowing sphere dots to maximize FPS and match siber aesthetic
+// Geometries for simple dot representation and easy click collision
 const dotGeometry = new THREE.SphereGeometry(0.35, 5, 5);
-
-const simpleStarlinkGeo = dotGeometry;
-const simpleStationGeo = dotGeometry;
-const simpleGpsGeo = dotGeometry;
-const simpleDefaultGeo = dotGeometry;
+const collisionGeometry = new THREE.SphereGeometry(3.2, 4, 4);
+const collisionMaterial = new THREE.MeshBasicMaterial({ visible: false });
 
 // Shared material cache to avoid creating thousands of duplicate WebGL materials
 const materialCache: Record<string, THREE.MeshBasicMaterial> = {};
@@ -205,11 +180,11 @@ export default function SatelliteGlobe() {
     if (globeRef.current && texturesLoaded) {
       const controls = globeRef.current.controls();
       if (controls) {
-        controls.autoRotate = true;
+        controls.autoRotate = !selectedSat;
         controls.autoRotateSpeed = 0.12; // slow, realistic rotation
       }
     }
-  }, [texturesLoaded]);
+  }, [texturesLoaded, selectedSat]);
 
   // Load default active layers on mount
   useEffect(() => {
@@ -782,114 +757,38 @@ export default function SatelliteGlobe() {
       geo: '#64748b'
     };
     
-    const nameUpper = d.name.toUpperCase();
     let color = (d.group && groupColorMap[d.group]) || '#38bdf8';
     const opacity = isSearched ? 1.0 : 0.12;
     
-    // Return detailed model ONLY if selected to save thousands of draw calls
-    if (isSelected) {
-      const selectedBodyMat = getSharedMaterial('#ffffff', 1.0);
-      const group = new THREE.Group();
-      group.name = 'satellite-mesh';
-      group.userData = { 
-        phase: Math.random() * 100,
-        isSelected: true
-      };
-      
-      if (nameUpper.includes('STARLINK')) {
-        const body = new THREE.Mesh(starlinkBodyGeo, selectedBodyMat);
-        group.add(body);
-        const connector = new THREE.Mesh(starlinkConnectorGeo, selectedBodyMat);
-        connector.position.set(0.6, 0, 0);
-        group.add(connector);
-        const panel = new THREE.Mesh(starlinkPanelGeo, starlinkPanelMat);
-        panel.position.set(1.6, 0, 0);
-        group.add(panel);
-      } else if (nameUpper.includes('ISS') || nameUpper.includes('TIANGONG') || nameUpper.includes('CSS') || nameUpper.includes('SPACE STATION')) {
-        const body = new THREE.Mesh(stationBodyGeo, selectedBodyMat);
-        group.add(body);
-        const leftPanel = new THREE.Mesh(stationPanelGeo, stationPanelMat);
-        leftPanel.position.set(-2.2, 0, 0);
-        group.add(leftPanel);
-        const rightPanel = new THREE.Mesh(stationPanelGeo, stationPanelMat);
-        rightPanel.position.set(2.2, 0, 0);
-        group.add(rightPanel);
-      } else if (nameUpper.includes('GPS') || nameUpper.includes('NAVSTAR') || nameUpper.includes('BEIDOU') || nameUpper.includes('GALILEO') || nameUpper.includes('GLONASS')) {
-        const body = new THREE.Mesh(gpsBodyGeo, selectedBodyMat);
-        group.add(body);
-        const leftPanel = new THREE.Mesh(gpsPanelGeo, gpsPanelMat);
-        leftPanel.position.set(-1.6, 0, 0);
-        group.add(leftPanel);
-        const rightPanel = new THREE.Mesh(gpsPanelGeo, gpsPanelMat);
-        rightPanel.position.set(1.6, 0, 0);
-        group.add(rightPanel);
-      } else {
-        const body = new THREE.Mesh(defaultBodyGeo, selectedBodyMat);
-        group.add(body);
-        const leftPanel = new THREE.Mesh(defaultPanelGeo, defaultPanelMat);
-        leftPanel.position.set(-0.9, 0, 0);
-        group.add(leftPanel);
-        const rightPanel = new THREE.Mesh(defaultPanelGeo, defaultPanelMat);
-        rightPanel.position.set(0.9, 0, 0);
-        group.add(rightPanel);
-      }
-      
-      // Attach local animation loop for selected satellite to avoid global scene traversal
-      const firstChild = group.children[0] as THREE.Mesh;
-      if (firstChild) {
-        firstChild.onBeforeRender = () => {
-          const time = Date.now() * 0.0035;
-          const phase = group.userData?.phase || 0;
-          const baseScale = 1.6;
-          const pulse = 1.0 + Math.sin(time + phase) * 0.15;
-          
-          let shadowFactor = 1.0;
-          if (sunVectorRef.current) {
-            const satVec = new THREE.Vector3().copy(group.position).normalize();
-            const dot = satVec.dot(sunVectorRef.current);
-            if (dot < -0.35) {
-              shadowFactor = 0.45;
-            }
-          }
-          const finalScale = baseScale * pulse * shadowFactor;
-          group.scale.set(finalScale, finalScale, finalScale);
-        };
-      }
-      
-      group.scale.set(1.6, 1.6, 1.6);
-      return group;
-    }
-    
-    // For standard satellites, reuse shared materials and simple geometries for 60 FPS
-    const sharedMat = getSharedMaterial(color, opacity);
-    let geom: THREE.BufferGeometry = simpleDefaultGeo;
-    
-    if (nameUpper.includes('STARLINK')) {
-      geom = simpleStarlinkGeo;
-    } else if (nameUpper.includes('ISS') || nameUpper.includes('TIANGONG') || nameUpper.includes('CSS') || nameUpper.includes('SPACE STATION')) {
-      geom = simpleStationGeo;
-    } else if (nameUpper.includes('GPS') || nameUpper.includes('NAVSTAR') || nameUpper.includes('BEIDOU') || nameUpper.includes('GALILEO') || nameUpper.includes('GLONASS')) {
-      geom = simpleGpsGeo;
-    }
-    
-    const mesh = new THREE.Mesh(geom, sharedMat);
-    mesh.name = 'satellite-mesh';
-    mesh.scale.set(0.18, 0.18, 0.18);
-    mesh.userData = { 
+    const group = new THREE.Group();
+    group.name = 'satellite-mesh';
+    group.userData = { 
       phase: Math.random() * 100,
-      isSelected: false
+      isSelected
     };
-    
-    // Attach local native animation loop to avoid global scene traversal at 60 FPS
-    mesh.onBeforeRender = () => {
+
+    // 1. Visual dot (represented as a self-luminous glowing sphere)
+    const visualColor = isSelected ? '#ffffff' : color;
+    const visualMat = getSharedMaterial(visualColor, opacity);
+    const visualMesh = new THREE.Mesh(dotGeometry, visualMat);
+    group.add(visualMesh);
+
+    // 2. Large invisible collision zone for easy clicking on spinning globe
+    const collisionMesh = new THREE.Mesh(collisionGeometry, collisionMaterial);
+    group.add(collisionMesh);
+
+    // Dynamic scaling (Selected dot is larger and pulses more strongly)
+    const baseScale = isSelected ? 0.35 : 0.18;
+    group.scale.set(baseScale, baseScale, baseScale);
+
+    group.onBeforeRender = () => {
       const time = Date.now() * 0.0035;
-      const phase = mesh.userData?.phase || 0;
-      const baseScale = 0.18;
-      const pulse = 1.0 + Math.sin(time + phase) * 0.35;
+      const phase = group.userData?.phase || 0;
+      const pulse = 1.0 + Math.sin(time + phase) * (isSelected ? 0.45 : 0.35);
       
       let shadowFactor = 1.0;
       if (sunVectorRef.current) {
-        const satVec = new THREE.Vector3().copy(mesh.position).normalize();
+        const satVec = new THREE.Vector3().copy(group.position).normalize();
         const dot = satVec.dot(sunVectorRef.current);
         if (dot < -0.35) {
           shadowFactor = 0.45;
@@ -897,10 +796,10 @@ export default function SatelliteGlobe() {
       }
       
       const finalScale = baseScale * pulse * shadowFactor;
-      mesh.scale.set(finalScale, finalScale, finalScale);
+      group.scale.set(finalScale, finalScale, finalScale);
     };
-    
-    return mesh;
+
+    return group;
   }, [selectedSat, searchQuery]);
 
   const satrec = selectedSat?.satrec;
