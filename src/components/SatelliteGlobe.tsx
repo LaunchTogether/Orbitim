@@ -214,8 +214,8 @@ export default function SatelliteGlobe() {
       if (controls) {
         controls.autoRotate = isRotating && !selectedSat;
         controls.autoRotateSpeed = 0.12; // slow, realistic rotation
-        controls.minDistance = 115; // Prevent zooming inside Earth/Moon surface
-        controls.maxDistance = 320; // Prevent zooming too far out into deep space
+        controls.minDistance = 110; // Prevent zooming inside Earth/Moon surface
+        controls.maxDistance = 450; // Prevent zooming too far out into deep space (generous but bounded limit)
       }
     }
   }, [texturesLoaded, selectedSat, isRotating]);
