@@ -236,10 +236,11 @@ export default function SatelliteGlobe() {
       console.log("8K textures successfully loaded.");
       const mat = new THREE.MeshStandardMaterial({
         map: dayTexture,
+        color: new THREE.Color('#556b82'), // Multiplying with slate-blue to desaturate and darken the day side
         emissiveMap: nightTexture,
-        emissive: new THREE.Color('#fffae6'),
-        emissiveIntensity: 1.8,
-        roughness: 0.6,
+        emissive: new THREE.Color('#fcd34d'), // Warm golden city lights
+        emissiveIntensity: 2.2, // Make city lights pop
+        roughness: 0.7,
         metalness: 0.1
       });
       setGlobeMaterial(mat);
@@ -653,6 +654,7 @@ export default function SatelliteGlobe() {
     
     const mesh = new THREE.Mesh(geom, sharedMat);
     mesh.name = 'satellite-mesh';
+    mesh.scale.set(0.18, 0.18, 0.18); // Scale down to make them look like tiny glowing dots when zoomed out
     mesh.userData = { 
       phase: Math.random() * 100,
       isSelected: false
@@ -662,7 +664,7 @@ export default function SatelliteGlobe() {
   }, [selectedSat, searchQuery]);
 
   return (
-    <div className="absolute inset-0 bg-black flex overflow-hidden">
+    <div className="absolute inset-0 bg-[#0e131f] flex overflow-hidden">
       {/* Landing Page Side Panel (Right) */}
       <div 
         className={`fixed top-0 right-0 h-full w-full sm:w-[460px] bg-slate-950/45 backdrop-blur-2xl border-l border-white/10 p-6 flex flex-col justify-between z-30 transition-transform duration-1000 ease-in-out pointer-events-auto overflow-y-auto ${
@@ -949,10 +951,11 @@ export default function SatelliteGlobe() {
         <Globe
           ref={globeRef}
           globeMaterial={globeMaterial || undefined}
+          backgroundColor="#0e131f"
           
           showAtmosphere={true}
-          atmosphereColor="#38bdf8" 
-          atmosphereAltitude={0.22}
+          atmosphereColor="#58c0ff" 
+          atmosphereAltitude={0.25}
 
           // Satellites 3D custom models
           objectsData={filteredSatellites}
