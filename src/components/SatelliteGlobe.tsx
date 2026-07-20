@@ -214,6 +214,8 @@ export default function SatelliteGlobe() {
   const [dataSource, setDataSource] = useState<string>('unknown');
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [tick, setTick] = useState(0);
+  const [showLaserLinks, setShowLaserLinks] = useState(false);
+  const sunVectorRef = useRef<THREE.Vector3>(new THREE.Vector3(1, 0, 0));
 
   // States for Globe.gl layers
   const [paths, setPaths] = useState<any[]>([]);
@@ -427,19 +429,32 @@ export default function SatelliteGlobe() {
           globe._customClouds.rotation.x += 0.00005;
         }
         
-        // Pulsate satellites
+        // Pulsate & shade satellites (Solar Occlusion)
         const scene = globe.scene();
         scene.traverse((obj: any) => {
-          if (obj.isGroup && obj.name === 'satellite-mesh') {
+          if (obj.name === 'satellite-mesh') {
             const phase = obj.userData?.phase || 0;
             const isSelected = obj.userData?.isSelected;
             
+            const baseScale = isSelected ? 1.6 : 0.18;
+            
             // Pulsate scale out-of-phase
             const pulse = isSelected 
-              ? 1.3 + Math.sin(time + phase) * 0.2
-              : 0.65 + Math.sin(time + phase) * 0.35;
+              ? 1.0 + Math.sin(time + phase) * 0.15
+              : 1.0 + Math.sin(time + phase) * 0.35;
+            
+            // Solar Occlusion: Check if satellite is in Earth's shadow relative to Sun position
+            let shadowFactor = 1.0;
+            if (sunVectorRef.current) {
+              const satVec = new THREE.Vector3().copy(obj.position).normalize();
+              const dot = satVec.dot(sunVectorRef.current);
+              if (dot < -0.35) {
+                shadowFactor = 0.45; // Dim the satellite by reducing its scale
+              }
+            }
               
-            obj.scale.set(pulse, pulse, pulse);
+            const finalScale = baseScale * pulse * shadowFactor;
+            obj.scale.set(finalScale, finalScale, finalScale);
           }
         });
       }
@@ -468,6 +483,9 @@ export default function SatelliteGlobe() {
       const sunPos = sphericalToCartesian(sunCoord.lat, sunCoord.lng, 450);
       const moonPos = sphericalToCartesian(moonCoord.lat, moonCoord.lng, 400);
 
+      // Store normalized Sun vector for shading calculations
+      sunVectorRef.current.set(sunPos.x, sunPos.y, sunPos.z).normalize();
+
       const globe = globeRef.current;
       if (globe) {
         if (globe._customSunLight) globe._customSunLight.position.copy(sunPos);
@@ -478,6 +496,7 @@ export default function SatelliteGlobe() {
       }
 
       // Propagate satellites
+      const propagated: SatelliteData[] = [];
       for (let i = 0; i < satellites.length; i++) {
         const sat = satellites[i];
         const positionAndVelocity = satellite.propagate(sat.satrec, now);
@@ -499,6 +518,7 @@ export default function SatelliteGlobe() {
               velocityEci.z * velocityEci.z
             );
           }
+          propagated.push(sat);
         } else {
           sat.lat = undefined;
           sat.lng = undefined;
@@ -508,55 +528,105 @@ export default function SatelliteGlobe() {
 
       setTick(t => t + 1);
 
-      // Selected orbit path update
-      if (selectedSat) {
-        updateOrbitPath(selectedSat.satrec, now);
-      } else {
-        setPaths([]);
-        setRings([]);
-      }
-    };
+      // Calculate paths and footprints
+      const newPaths: any[] = [];
+      const newRings: any[] = [];
 
-    const updateOrbitPath = (satrec: satellite.SatRec, now: Date) => {
-      const pathPoints: any[] = [];
-      
-      for (let i = 0; i <= 90; i += 2) {
-        const futureTime = new Date(now.getTime() + i * 60000);
-        const futureGmst = satellite.gstime(futureTime);
-        const posVel = satellite.propagate(satrec, futureTime);
-        if (!posVel) continue;
-        const posEci = posVel.position;
-        
-        if (posEci && typeof posEci !== 'boolean') {
-          const posGd = satellite.eciToGeodetic(posEci, futureGmst);
-          pathPoints.push({
-            lat: satellite.degreesLat(posGd.latitude),
-            lng: satellite.degreesLong(posGd.longitude),
-            alt: posGd.height / EARTH_RADIUS_KM
-          });
+      if (selectedSat) {
+        const currentSat = propagated.find(s => s.name === selectedSat.name);
+        if (currentSat && currentSat.lat !== undefined) {
+          const pathPoints: any[] = [];
+          
+          for (let i = 0; i <= 90; i += 2) {
+            const futureTime = new Date(now.getTime() + i * 60000);
+            const futureGmst = satellite.gstime(futureTime);
+            const posVel = satellite.propagate(currentSat.satrec, futureTime);
+            if (!posVel) continue;
+            const posEci = posVel.position;
+            
+            if (posEci && typeof posEci !== 'boolean') {
+              const posGd = satellite.eciToGeodetic(posEci, futureGmst);
+              pathPoints.push({
+                lat: satellite.degreesLat(posGd.latitude),
+                lng: satellite.degreesLong(posGd.longitude),
+                alt: posGd.height / EARTH_RADIUS_KM
+              });
+            }
+          }
+          
+          if (pathPoints.length > 0) {
+            // Selected Orbit Path
+            newPaths.push({
+              coords: pathPoints.map(p => [p.lat, p.lng, p.alt]),
+              isNadir: false,
+              isLaser: false
+            });
+
+            // Nadir Downlink Beam
+            newPaths.push({
+              coords: [
+                [currentSat.lat, currentSat.lng, currentSat.alt || 0.1],
+                [currentSat.lat, currentSat.lng, 0.005]
+              ],
+              isNadir: true,
+              isLaser: false
+            });
+
+            // Footprint Ring
+            newRings.push({
+              lat: currentSat.lat,
+              lng: currentSat.lng,
+              maxR: 15,
+              propagationSpeed: 0,
+              repeatPeriod: 0
+            });
+          }
         }
       }
 
-      const coords = pathPoints.map(p => [p.lat, p.lng, p.alt]);
-      setPaths([{ coords }]);
-
-      if (pathPoints.length > 0) {
-        const currentPos = pathPoints[0];
-        setRings([{
-          lat: currentPos.lat,
-          lng: currentPos.lng,
-          maxR: 15,
-          propagationSpeed: 0,
-          repeatPeriod: 0
-        }]);
+      // Laser Links (Optical inter-satellite cross-links)
+      if (showLaserLinks && activeGroup === 'starlink' && propagated.length > 30) {
+        const sorted = [...propagated].sort((a, b) => (a.lng || 0) - (b.lng || 0));
+        let laserCount = 0;
+        
+        for (let i = 0; i < sorted.length; i++) {
+          const s1 = sorted[i];
+          if (s1.lat === undefined || s1.lng === undefined) continue;
+          
+          for (let j = 1; j <= 2; j++) {
+            const s2 = sorted[(i + j) % sorted.length];
+            if (s2.lat === undefined || s2.lng === undefined) continue;
+            
+            const latDiff = Math.abs(s1.lat - s2.lat);
+            const lngDiff = Math.abs(s1.lng - s2.lng);
+            const actualLngDiff = lngDiff > 180 ? 360 - lngDiff : lngDiff;
+            
+            if (latDiff < 5.5 && actualLngDiff < 5.5) {
+              newPaths.push({
+                coords: [
+                  [s1.lat, s1.lng, s1.alt || 0.1],
+                  [s2.lat, s2.lng, s2.alt || 0.1]
+                ],
+                isNadir: false,
+                isLaser: true
+              });
+              laserCount++;
+              if (laserCount >= 200) break;
+            }
+          }
+          if (laserCount >= 200) break;
+        }
       }
+
+      setPaths(newPaths);
+      setRings(newRings);
     };
 
     updatePositions();
     const interval = setInterval(updatePositions, 1000);
 
     return () => clearInterval(interval);
-  }, [satellites, selectedSat]);
+  }, [satellites, selectedSat, showLaserLinks, activeGroup]);
 
   // Adjust camera to focus on selected satellite
   useEffect(() => {
@@ -837,6 +907,25 @@ export default function SatelliteGlobe() {
               );
             })}
           </div>
+
+          {/* Laser Links Toggle */}
+          {activeGroup === 'starlink' && (
+            <div className="pt-3 border-t border-white/5 flex items-center justify-between text-xs pointer-events-auto">
+              <span className="text-white/60">Laser Links (ISL)</span>
+              <button 
+                onClick={() => setShowLaserLinks(!showLaserLinks)}
+                className={`w-9 h-5 rounded-full transition-all relative ${
+                  showLaserLinks ? 'bg-blue-600' : 'bg-slate-800'
+                }`}
+              >
+                <span 
+                  className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.75 transition-all ${
+                    showLaserLinks ? 'left-[18px]' : 'left-[2px]'
+                  }`} 
+                />
+              </button>
+            </div>
+          )}
           
           <div className="text-[8px] text-gray-500 font-mono border-t border-white/5 pt-3 text-center leading-relaxed">
             TLE CelesTrak · SGP4 satellite.js · Imagery NASA Blue Marble
@@ -987,14 +1076,35 @@ export default function SatelliteGlobe() {
             setSelectedSat(obj);
           }}
 
-          // Orbit paths
+          // Orbit paths, laser links, and nadir beams
           pathsData={paths}
-          pathColor={() => 'rgba(59, 130, 246, 0.7)'} 
-          pathStroke={1.5}
-          pathResolution={60}
-          pathDashLength={0.04}
-          pathDashGap={0.02}
-          pathDashAnimateTime={2000} 
+          pathPoints="coords"
+          pathColor={(path: any) => {
+            if (path.isNadir) return 'rgba(34, 211, 238, 0.95)'; // Glowing cyan downlink
+            if (path.isLaser) return 'rgba(168, 85, 247, 0.65)'; // Neon purple laser link
+            return 'rgba(59, 130, 246, 0.5)'; // Slate blue orbit path
+          }}
+          pathStroke={(path: any) => {
+            if (path.isNadir) return 2.2;
+            if (path.isLaser) return 0.8;
+            return 1.2;
+          }}
+          pathResolution={30}
+          pathDashLength={(path: any) => {
+            if (path.isNadir) return 0.25;
+            if (path.isLaser) return 0.05;
+            return 0.04;
+          }}
+          pathDashGap={(path: any) => {
+            if (path.isNadir) return 0.1;
+            if (path.isLaser) return 0.02;
+            return 0.02;
+          }}
+          pathDashAnimateTime={(path: any) => {
+            if (path.isNadir) return 1200; // Fast descending downlink pulse
+            if (path.isLaser) return 4000;
+            return 2500;
+          }}
 
           // Rings footprints
           ringsData={rings}
