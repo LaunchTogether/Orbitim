@@ -530,12 +530,38 @@ export default function SatelliteGlobe() {
     };
   }, [texturesLoaded]);
 
-  // Animation loop for clouds rotation
+  const isTimeFlowingRef = useRef(isTimeFlowing);
+  const timeMultiplierRef = useRef(timeMultiplier);
+  const observationTargetRef = useRef(observationTarget);
+
+  useEffect(() => {
+    isTimeFlowingRef.current = isTimeFlowing;
+  }, [isTimeFlowing]);
+
+  useEffect(() => {
+    timeMultiplierRef.current = timeMultiplier;
+  }, [timeMultiplier]);
+
+  useEffect(() => {
+    observationTargetRef.current = observationTarget;
+  }, [observationTarget]);
+
+  // Animation loop for clouds rotation and smooth simulated time updates
   useEffect(() => {
     let animId: number;
+    let lastTime = performance.now();
+    let tickCount = 0;
     
     const animate = () => {
       const globe = globeRef.current;
+      const nowMs = performance.now();
+      const deltaSec = (nowMs - lastTime) / 1000;
+      lastTime = nowMs;
+      
+      if (isTimeFlowingRef.current) {
+        // Advance simulated time ref smoothly at 60 FPS
+        simTimeRef.current = new Date(simTimeRef.current.getTime() + deltaSec * 1000 * timeMultiplierRef.current);
+      }
       
       if (globe) {
         // Rotate clouds
@@ -543,6 +569,12 @@ export default function SatelliteGlobe() {
           globe._customClouds.rotation.y += 0.00018;
           globe._customClouds.rotation.x += 0.00005;
         }
+      }
+
+      // Throttle React state updates to 2 times per second to keep UI rendering low-cost
+      tickCount++;
+      if (tickCount % 30 === 0) {
+        setSimTime(new Date(simTimeRef.current.getTime()));
       }
       
       animId = requestAnimationFrame(animate);
@@ -553,15 +585,6 @@ export default function SatelliteGlobe() {
   }, [texturesLoaded]);
 
   const [selectedSatLive, setSelectedSatLive] = useState<SatelliteData | null>(null);
-
-  // Loop to advance simulated clock based on warp multiplier
-  useEffect(() => {
-    if (!isTimeFlowing) return;
-    const interval = setInterval(() => {
-      setSimTime(prev => new Date(prev.getTime() + 1000 * timeMultiplier));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isTimeFlowing, timeMultiplier]);
 
   // Update clock, Sun, Moon, and selected satellite telemetry based on simTime
   useEffect(() => {
@@ -1051,9 +1074,7 @@ export default function SatelliteGlobe() {
 
     // Dynamic scaling (Selected dot is larger and pulses more strongly)
     const baseScale = isSelected ? 0.35 : 0.18;
-    group.scale.set(baseScale, baseScale, baseScale);
-
-    // We update staggered: once every 120 frames (~2 seconds)
+    group.scale.set(baseScale, baseScale, baseScale);    // We update staggered based on dynamic frame interval
     // We use a random offset so that satellites are distributed evenly across frames
     const frameOffset = Math.floor(Math.random() * 120);
     let frameCount = frameOffset;
@@ -1061,27 +1082,57 @@ export default function SatelliteGlobe() {
     group.onBeforeRender = () => {
       frameCount++;
       
-      // Update position once every 120 frames
-      if (frameCount % 120 === 0 && isTimeFlowing && group.userData.satrec) {
-        const now = simTimeRef.current || new Date();
-        const gmst = satellite.gstime(now);
-        const posVel = satellite.propagate(group.userData.satrec, now);
-        
-        if (posVel && posVel.position && typeof posVel.position !== 'boolean') {
-          const gd = satellite.eciToGeodetic(posVel.position, gmst);
-          const lng = satellite.degreesLong(gd.longitude);
-          const alt = gd.height / EARTH_RADIUS_KM;
+      // Determine update rate dynamically based on time multiplier to keep motion smooth
+      const mult = timeMultiplierRef.current;
+      let updateInterval = 60;
+      if (mult > 60) updateInterval = 5;
+      else if (mult > 10) updateInterval = 20;
+      
+      if (observationTargetRef.current === 'moon') {
+        updateInterval = 2; // Lunar satellites move in real-time, update faster!
+      }
+
+      // Update position once every updateInterval frames
+      if (frameCount % updateInterval === 0 && isTimeFlowingRef.current) {
+        if (observationTargetRef.current === 'moon' && d.lunarOrbit) {
+          // Keplerian lunar propagation
+          const orbit = d.lunarOrbit;
+          const now = simTimeRef.current || new Date();
+          const t = now.getTime() / 1000; // time in seconds
           
-          // Convert spherical (lat, lng, alt) to Cartesian (x, y, z)
-          const phi = gd.latitude; // already in radians
-          const theta = (lng * Math.PI) / 180;
-          const r = 100 * (1 + alt); // Globe radius is 100
+          // Calculate angle based on period
+          const angle = (2 * Math.PI * t) / orbit.period + group.userData.phase;
+          const phi = (orbit.inclination * Math.PI) / 180;
+          const r = 100 * (1 + orbit.altitude / 1737); // Globe radius is 100
           
-          const x = r * Math.cos(phi) * Math.sin(theta);
-          const y = r * Math.sin(phi);
-          const z = r * Math.cos(phi) * Math.cos(theta);
+          // Polar coordinates rotation
+          const x = r * Math.cos(angle);
+          const y = r * Math.sin(angle) * Math.cos(phi);
+          const z = r * Math.sin(angle) * Math.sin(phi);
           
           group.position.set(x, y, z);
+        } else if (group.userData.satrec) {
+          // Earth TLE propagation
+          const now = simTimeRef.current || new Date();
+          const gmst = satellite.gstime(now);
+          const posVel = satellite.propagate(group.userData.satrec, now);
+          
+          if (posVel && posVel.position && typeof posVel.position !== 'boolean') {
+            const gd = satellite.eciToGeodetic(posVel.position, gmst);
+            const lng = satellite.degreesLong(gd.longitude);
+            const alt = gd.height / EARTH_RADIUS_KM;
+            
+            // Convert spherical (lat, lng, alt) to Cartesian (x, y, z)
+            const phi = gd.latitude; // already in radians
+            const theta = (lng * Math.PI) / 180;
+            const r = 100 * (1 + alt); // Globe radius is 100
+            
+            const x = r * Math.cos(phi) * Math.sin(theta);
+            const y = r * Math.sin(phi);
+            const z = r * Math.cos(phi) * Math.cos(theta);
+            
+            group.position.set(x, y, z);
+          }
         }
       }
 
