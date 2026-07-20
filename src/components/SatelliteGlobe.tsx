@@ -225,16 +225,18 @@ export default function SatelliteGlobe() {
   const [rings, setRings] = useState<any[]>([]);
   const [globeMaterial, setGlobeMaterial] = useState<THREE.Material | null>(null);
 
-  // Enable auto-rotation while on the landing screen, disable when launched
+  // Enable auto-rotation globally so that the Earth spins realistically on its axis
   useEffect(() => {
     if (globeRef.current && texturesLoaded) {
       const controls = globeRef.current.controls();
       if (controls) {
-        controls.autoRotate = showLanding;
-        controls.autoRotateSpeed = 0.4;
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.12; // Slow, realistic axial rotation
       }
     }
-  }, [showLanding, texturesLoaded]);
+  }, [texturesLoaded]);
 
   // Load 8K high-resolution Day and Night textures
   useEffect(() => {
@@ -303,46 +305,99 @@ export default function SatelliteGlobe() {
     ambientLight.name = 'custom-ambient';
     scene.add(ambientLight);
 
-    // Sun directional light
-    const sunLight = new THREE.DirectionalLight('#fffdf0', 3.0);
+    // Sun directional light (Space-accurate bright white light)
+    const sunLight = new THREE.DirectionalLight('#ffffff', 4.0);
     sunLight.name = 'custom-sun';
     scene.add(sunLight);
 
     // Moon directional light
-    const moonLight = new THREE.DirectionalLight('#dbeafe', 0.6);
+    const moonLight = new THREE.DirectionalLight('#c5d4eb', 0.4);
     moonLight.name = 'custom-moon';
     scene.add(moonLight);
 
-    // Sun visual sphere (shining yellow in deep space)
-    const sunMeshGeo = new THREE.SphereGeometry(18, 16, 16);
-    const sunMeshMat = new THREE.MeshBasicMaterial({ color: '#ffea00' });
+    // Sun visual sphere (Shining pure white space core with dynamic core glow)
+    const sunMeshGeo = new THREE.SphereGeometry(22, 32, 32);
+    const sunMeshMat = new THREE.MeshBasicMaterial({ 
+      color: '#ffffff',
+      toneMapped: false
+    });
     const sunMesh = new THREE.Mesh(sunMeshGeo, sunMeshMat);
     sunMesh.name = 'sun-visual';
     scene.add(sunMesh);
 
-    // Moon visual sphere (grey wireframe in deep space)
-    const moonMeshGeo = new THREE.SphereGeometry(5, 12, 12);
-    const moonMeshMat = new THREE.MeshBasicMaterial({ color: '#94a3b8', wireframe: true });
+    // Realistic Moon visual sphere using dynamic crater CanvasTexture
+    const moonCanvas = document.createElement('canvas');
+    moonCanvas.width = 128;
+    moonCanvas.height = 64;
+    const mCtx = moonCanvas.getContext('2d')!;
+    mCtx.fillStyle = '#7e838c'; // Base Lunar Grey
+    mCtx.fillRect(0, 0, 128, 64);
+    // Draw procedurally generated crater shadows for realistic lunar texture
+    for (let i = 0; i < 40; i++) {
+      const x = Math.random() * 128;
+      const y = Math.random() * 64;
+      const r = 2 + Math.random() * 6;
+      const grad = mCtx.createRadialGradient(x, y, 0, x, y, r);
+      grad.addColorStop(0, 'rgba(40, 42, 46, 0.95)'); // Dark crater core
+      grad.addColorStop(0.5, 'rgba(70, 74, 80, 0.7)');
+      grad.addColorStop(0.8, 'rgba(180, 185, 195, 0.5)'); // Bright crater rim
+      grad.addColorStop(1, 'rgba(126, 131, 140, 0)');
+      mCtx.fillStyle = grad;
+      mCtx.beginPath();
+      mCtx.arc(x, y, r, 0, Math.PI * 2);
+      mCtx.fill();
+    }
+    const moonTex = new THREE.CanvasTexture(moonCanvas);
+    const moonMeshGeo = new THREE.SphereGeometry(6, 24, 24);
+    const moonMeshMat = new THREE.MeshStandardMaterial({ 
+      map: moonTex,
+      roughness: 0.9,
+      metalness: 0.05
+    });
     const moonMesh = new THREE.Mesh(moonMeshGeo, moonMeshMat);
     moonMesh.name = 'moon-visual';
     scene.add(moonMesh);
 
-    // Add sharp 3D Starfield particles
+    // Add sharp 3D Starfield particles + Milky Way Galaxy Band
     const starsGeometry = new THREE.BufferGeometry();
-    const starsCount = 4000;
+    const starsCount = 5500;
     const starsPositions = new Float32Array(starsCount * 3);
+    const starsColors = new Float32Array(starsCount * 3);
     
     for (let i = 0; i < starsCount * 3; i += 3) {
-      const r = 500 + Math.random() * 500;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 400 + Math.random() * 600;
+      
+      // Determine if this star belongs to the Milky Way central band
+      const isMilkyWay = Math.random() < 0.45;
+      let theta = Math.random() * Math.PI * 2;
+      let phi = Math.acos(2 * Math.random() - 1);
+      
+      if (isMilkyWay) {
+        // Constrain phi close to the equatorial galactic disk plane
+        const galacticPlaneDev = (Math.random() - 0.5) * 0.12; 
+        phi = Math.PI / 2 + galacticPlaneDev;
+        // Introduce small noise in theta to keep it continuous
+        theta = theta + (Math.random() - 0.5) * 0.05;
+      }
       
       starsPositions[i] = r * Math.sin(phi) * Math.cos(theta);
       starsPositions[i + 1] = r * Math.sin(phi) * Math.sin(theta);
       starsPositions[i + 2] = r * Math.cos(phi);
+      
+      // Add glowing space colors: Milky Way is purple/violet/deep blue, ambient stars are white/cyan
+      if (isMilkyWay) {
+        starsColors[i] = 0.65 + Math.random() * 0.35; // Red
+        starsColors[i + 1] = 0.45 + Math.random() * 0.3; // Green
+        starsColors[i + 2] = 0.95; // Blue
+      } else {
+        starsColors[i] = 0.9;
+        starsColors[i + 1] = 0.95;
+        starsColors[i + 2] = 1.0;
+      }
     }
     
     starsGeometry.setAttribute('position', new THREE.BufferAttribute(starsPositions, 3));
+    starsGeometry.setAttribute('color', new THREE.BufferAttribute(starsColors, 3));
     
     // Smooth radial gradient circle for round stars
     const canvas = document.createElement('canvas');
@@ -358,11 +413,12 @@ export default function SatelliteGlobe() {
     const starTex = new THREE.CanvasTexture(canvas);
     
     const starsMaterial = new THREE.PointsMaterial({
-      size: 1.8,
+      size: 2.2,
       sizeAttenuation: true,
       map: starTex,
+      vertexColors: true, // Enable custom colors for the galaxy band
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.85,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
