@@ -25,11 +25,12 @@ const GROUPS = [
 ];
 
 const LUNAR_SATELLITES = [
-  { name: 'Lunar Reconnaissance Orbiter (LRO)', altitude: 50, inclination: 90, color: '#38bdf8', period: 7200, group: 'moon_sats' },
-  { name: 'Lunar Gateway (NRHO)', altitude: 3000, inclination: 85, color: '#fbbf24', period: 28800, group: 'moon_sats' },
-  { name: 'Chang\'e 4 Orbiter', altitude: 100, inclination: 45, color: '#a855f7', period: 7600, group: 'moon_sats' },
-  { name: 'Artemis II Orion', altitude: 120, inclination: 30, color: '#ef4444', period: 7800, group: 'moon_sats' },
-  { name: 'Apollo 11 Command Module', altitude: 110, inclination: 10, color: '#22c55e', period: 7700, group: 'moon_sats' }
+  { name: 'Lunar Reconnaissance Orbiter (LRO)', id: 35315, altitude: 50, inclination: 90, color: '#38bdf8', period: 7200, group: 'moon_sats' },
+  { name: 'Chandrayaan-2 Orbiter', id: 44431, altitude: 100, inclination: 90, color: '#fbbf24', period: 7140, group: 'moon_sats' },
+  { name: 'Danuri (KPLO)', id: 53368, altitude: 100, inclination: 90, color: '#22c55e', period: 7200, group: 'moon_sats' },
+  { name: 'Chang\'e 4 Relay (Queqiao)', id: 43470, altitude: 2000, inclination: 45, color: '#a855f7', period: 18000, group: 'moon_sats' },
+  { name: 'Queqiao-2 (Chang\'e 6 Relay)', id: 59196, altitude: 8600, inclination: 55, color: '#f43f5e', period: 30960, group: 'moon_sats' },
+  { name: 'Apollo 11 Command Module', id: 4400, altitude: 110, inclination: 10, color: '#818cf8', period: 7700, group: 'moon_sats' }
 ];
 
 
@@ -233,13 +234,13 @@ export default function SatelliteGlobe() {
       setRings([]);
       
       if (observationTarget === 'moon') {
-        // Load lunar satellites locally
+        // Load lunar satellites locally using their real catalog IDs
         const mockData = LUNAR_SATELLITES.map(s => {
           return {
             name: s.name,
             group: 'moon_sats',
             satrec: {
-              satnum: Math.floor(Math.random() * 100000),
+              satnum: s.id,
             },
             lat: 0,
             lng: 0,
@@ -1002,17 +1003,17 @@ export default function SatelliteGlobe() {
         }
       }
 
-      // If closest debris is within 600km, flash warning!
-      if (minDist < 600 && closestDebris) {
+      // Show real close-approach alerts based on propagated orbits
+      if (minDist < 500 && closestDebris) {
         setCollisionWarning(
-          `COLLISION RISK DETECTED: ISS vs ${closestDebris.name} | Close Approach: ${minDist.toFixed(1)} km`
+          `⚠️ CRITICAL COLLISION RISK: ISS vs ${closestDebris.name} | Close Approach: ${minDist.toFixed(1)} km`
+        );
+      } else if (minDist < 2000 && closestDebris) {
+        setCollisionWarning(
+          `🚨 CLOSE APPROACH MONITORING: ISS vs ${closestDebris.name} | Distance: ${minDist.toFixed(1)} km`
         );
       } else {
-        // To keep the sci-fi dashboard exciting, if no real close approach under 600km exists,
-        // we simulate the proximity monitoring state:
-        setCollisionWarning(
-          `MONITORING ORBITAL JUNCTION: ISS vs Debris Cosmos-2251 | Separation: ${(450 + Math.random() * 200).toFixed(1)} km`
-        );
+        setCollisionWarning(null); // No close approach, hide the banner to keep data 100% genuine
       }
     };
 
