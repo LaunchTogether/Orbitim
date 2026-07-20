@@ -418,12 +418,11 @@ export default function SatelliteGlobe() {
     };
   }, [texturesLoaded]);
 
-  // Animation loop for clouds rotation and satellite pulsation
+  // Animation loop for clouds rotation
   useEffect(() => {
     let animId: number;
     
     const animate = () => {
-      const time = Date.now() * 0.0035;
       const globe = globeRef.current;
       
       if (globe) {
@@ -432,35 +431,6 @@ export default function SatelliteGlobe() {
           globe._customClouds.rotation.y += 0.00018;
           globe._customClouds.rotation.x += 0.00005;
         }
-        
-        // Pulsate & shade satellites (Solar Occlusion)
-        const scene = globe.scene();
-        scene.traverse((obj: any) => {
-          if (obj.name === 'satellite-mesh') {
-            const phase = obj.userData?.phase || 0;
-            const isSelected = obj.userData?.isSelected;
-            
-            const baseScale = isSelected ? 1.6 : 0.18;
-            
-            // Pulsate scale out-of-phase
-            const pulse = isSelected 
-              ? 1.0 + Math.sin(time + phase) * 0.15
-              : 1.0 + Math.sin(time + phase) * 0.35;
-            
-            // Solar Occlusion: Check if satellite is in Earth's shadow relative to Sun position
-            let shadowFactor = 1.0;
-            if (sunVectorRef.current) {
-              const satVec = new THREE.Vector3().copy(obj.position).normalize();
-              const dot = satVec.dot(sunVectorRef.current);
-              if (dot < -0.35) {
-                shadowFactor = 0.45; // Dim the satellite by reducing its scale
-              }
-            }
-              
-            const finalScale = baseScale * pulse * shadowFactor;
-            obj.scale.set(finalScale, finalScale, finalScale);
-          }
-        });
       }
       
       animId = requestAnimationFrame(animate);
@@ -628,7 +598,9 @@ export default function SatelliteGlobe() {
     };
 
     updatePositions();
-    const interval = setInterval(updatePositions, 1000);
+    // Dynamic interval based on constellation size: 2.5s for massive Starlink, 1s for lightweight ones
+    const intervalTime = satellites.length > 2000 ? 2500 : 1000;
+    const interval = setInterval(updatePositions, intervalTime);
 
     return () => clearInterval(interval);
   }, [satellites, selectedSat, showLaserLinks, activeGroup]);
@@ -721,6 +693,28 @@ export default function SatelliteGlobe() {
         group.add(rightPanel);
       }
       
+      // Attach local animation loop for selected satellite to avoid global scene traversal
+      const firstChild = group.children[0] as THREE.Mesh;
+      if (firstChild) {
+        firstChild.onBeforeRender = () => {
+          const time = Date.now() * 0.0035;
+          const phase = group.userData?.phase || 0;
+          const baseScale = 1.6;
+          const pulse = 1.0 + Math.sin(time + phase) * 0.15;
+          
+          let shadowFactor = 1.0;
+          if (sunVectorRef.current) {
+            const satVec = new THREE.Vector3().copy(group.position).normalize();
+            const dot = satVec.dot(sunVectorRef.current);
+            if (dot < -0.35) {
+              shadowFactor = 0.45;
+            }
+          }
+          const finalScale = baseScale * pulse * shadowFactor;
+          group.scale.set(finalScale, finalScale, finalScale);
+        };
+      }
+      
       group.scale.set(1.6, 1.6, 1.6);
       return group;
     }
@@ -739,10 +733,30 @@ export default function SatelliteGlobe() {
     
     const mesh = new THREE.Mesh(geom, sharedMat);
     mesh.name = 'satellite-mesh';
-    mesh.scale.set(0.18, 0.18, 0.18); // Scale down to make them look like tiny glowing dots when zoomed out
+    mesh.scale.set(0.18, 0.18, 0.18);
     mesh.userData = { 
       phase: Math.random() * 100,
       isSelected: false
+    };
+    
+    // Attach local native animation loop to avoid global scene traversal at 60 FPS
+    mesh.onBeforeRender = () => {
+      const time = Date.now() * 0.0035;
+      const phase = mesh.userData?.phase || 0;
+      const baseScale = 0.18;
+      const pulse = 1.0 + Math.sin(time + phase) * 0.35;
+      
+      let shadowFactor = 1.0;
+      if (sunVectorRef.current) {
+        const satVec = new THREE.Vector3().copy(mesh.position).normalize();
+        const dot = satVec.dot(sunVectorRef.current);
+        if (dot < -0.35) {
+          shadowFactor = 0.45;
+        }
+      }
+      
+      const finalScale = baseScale * pulse * shadowFactor;
+      mesh.scale.set(finalScale, finalScale, finalScale);
     };
     
     return mesh;
