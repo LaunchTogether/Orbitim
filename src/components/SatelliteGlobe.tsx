@@ -16,9 +16,11 @@ const GROUPS = [
   { id: 'galileo', name: 'Galileo', count: 49, color: '#06b6d4' },
   { id: 'weather', name: 'Weather', count: 38, color: '#ec4899' },
   { id: 'oneweb', name: 'OneWeb', count: 651, color: '#a855f7' },
-  { id: 'starlink', name: 'Starlink', count: 6185, color: '#3b82f6' },
+  { id: 'starlink', name: 'Starlink', count: 10785, color: '#3b82f6' },
   { id: 'brightest', name: 'Brightest', count: 157, color: '#ffffff' },
-  { id: 'debris', name: 'Debris', count: 593, color: '#f43f5e' },
+  { id: 'debris_cosmos', name: 'Debris · Cosmos-2251', count: 593, color: '#f43f5e' },
+  { id: 'debris_iridium', name: 'Debris · Iridium-33', count: 110, color: '#fb923c' },
+  { id: 'debris_fengyun', name: 'Debris · Fengyun-1C', count: 1919, color: '#ef4444' },
   { id: 'geo', name: 'Other Active', count: 4425, color: '#64748b' }
 ];
 
@@ -146,8 +148,22 @@ function getMoonPosition(date: Date) {
 
 export default function SatelliteGlobe() {
   const globeRef = useRef<any>(null);
-  const [activeGroup, setActiveGroup] = useState<string>('starlink');
-  const [satellites, setSatellites] = useState<SatelliteData[]>([]);
+  const [visibleLayers, setVisibleLayers] = useState<Record<string, boolean>>({
+    starlink: true,
+    stations: true,
+    gps: false,
+    glonass: false,
+    galileo: false,
+    weather: false,
+    oneweb: false,
+    brightest: false,
+    debris_cosmos: false,
+    debris_iridium: false,
+    debris_fengyun: false,
+    geo: false
+  });
+  const [loadedSatellites, setLoadedSatellites] = useState<Record<string, SatelliteData[]>>({});
+  const [loadingGroups, setLoadingGroups] = useState<Record<string, boolean>>({});
   const [positions, setPositions] = useState<SatelliteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [texturesLoaded, setTexturesLoaded] = useState(false);
@@ -168,6 +184,17 @@ export default function SatelliteGlobe() {
   const [followSelected, setFollowSelected] = useState(true);
   const [labels, setLabels] = useState<any[]>([]);
 
+  // Memoize all currently enabled satellites
+  const satellites = useMemo(() => {
+    let combined: SatelliteData[] = [];
+    for (const groupId of Object.keys(visibleLayers)) {
+      if (visibleLayers[groupId] && loadedSatellites[groupId]) {
+        combined = combined.concat(loadedSatellites[groupId]);
+      }
+    }
+    return combined;
+  }, [visibleLayers, loadedSatellites]);
+
   // States for Globe.gl layers
   const [paths, setPaths] = useState<any[]>([]);
   const [rings, setRings] = useState<any[]>([]);
@@ -178,13 +205,78 @@ export default function SatelliteGlobe() {
     if (globeRef.current && texturesLoaded) {
       const controls = globeRef.current.controls();
       if (controls) {
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
         controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.12; // Slow, realistic axial rotation
+        controls.autoRotateSpeed = 0.12; // slow, realistic rotation
       }
     }
   }, [texturesLoaded]);
+
+  // Load default active layers on mount
+  useEffect(() => {
+    let active = true;
+    const initLoad = async () => {
+      setLoading(true);
+      setError(null);
+      setErrorDetails('');
+      try {
+        const defaults = ['starlink', 'stations'];
+        const loaded: Record<string, SatelliteData[]> = {};
+        
+        for (const dep of defaults) {
+          const res = await fetchSatellitesByGroup(dep);
+          if (!active) return;
+          loaded[dep] = res.satellites;
+          setDataSource(res.source);
+          if (res.errorDetails) {
+            setErrorDetails(res.errorDetails);
+          }
+        }
+        
+        setLoadedSatellites(loaded);
+      } catch (e: any) {
+        if (active) {
+          setError(e.message || 'Could not establish satellite connection.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    initLoad();
+    return () => { active = false; };
+  }, []);
+
+  // Callback to toggle layer visibility and lazy-load data
+  const toggleLayer = useCallback(async (groupId: string) => {
+    const nextVal = !visibleLayers[groupId];
+    
+    // Clear selection if the selected satellite is in the group being hidden
+    if (!nextVal && selectedSat && selectedSat.group === groupId) {
+      setSelectedSat(null);
+      setPaths([]);
+      setRings([]);
+    }
+
+    setVisibleLayers(prev => ({ ...prev, [groupId]: nextVal }));
+    
+    if (nextVal && !loadedSatellites[groupId]) {
+      setLoadingGroups(prev => ({ ...prev, [groupId]: true }));
+      try {
+        const res = await fetchSatellitesByGroup(groupId);
+        setLoadedSatellites(prev => ({ ...prev, [groupId]: res.satellites }));
+        setDataSource(res.source);
+        if (res.errorDetails) {
+          setErrorDetails(res.errorDetails);
+        }
+      } catch (e: any) {
+        console.error(`Failed to load group ${groupId}:`, e);
+      } finally {
+        setLoadingGroups(prev => ({ ...prev, [groupId]: false }));
+      }
+    }
+  }, [visibleLayers, loadedSatellites, selectedSat]);
 
   // Load 8K high-resolution Day and Night textures
   useEffect(() => {
@@ -212,27 +304,7 @@ export default function SatelliteGlobe() {
     });
   }, []);
 
-  // Fetch satellites when group changes
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    setSelectedSat(null);
-    setPaths([]);
-    setRings([]);
 
-    fetchSatellitesByGroup(activeGroup)
-      .then((res) => {
-        setSatellites(res.satellites);
-        setPositions([]);
-        setDataSource(res.source);
-        setErrorDetails(res.errorDetails || '');
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [activeGroup]);
 
   // Setup custom scene lights, visual celestial bodies, and 3D starfield
   useEffect(() => {
@@ -605,7 +677,7 @@ export default function SatelliteGlobe() {
       }
 
       // Laser Links (Optical inter-satellite cross-links)
-      if (showLaserLinks && activeGroup === 'starlink' && propagated.length > 30) {
+      if (showLaserLinks && visibleLayers.starlink && propagated.length > 30) {
         const sorted = [...propagated].sort((a, b) => (a.lng || 0) - (b.lng || 0));
         let laserCount = 0;
         
@@ -649,7 +721,7 @@ export default function SatelliteGlobe() {
     const interval = setInterval(updatePositions, intervalTime);
 
     return () => clearInterval(interval);
-  }, [satellites, selectedSat, showLaserLinks, activeGroup, showSelectedOrbit, showSelectedFootprint]);
+  }, [satellites, selectedSat, showLaserLinks, visibleLayers, showSelectedOrbit, showSelectedFootprint]);
 
   // Adjust camera to focus on selected satellite when clicked
   useEffect(() => {
@@ -694,18 +766,25 @@ export default function SatelliteGlobe() {
     const isSelected = selectedSat && d.name === selectedSat.name;
     const isSearched = searchQuery ? d.name.toLowerCase().includes(searchQuery.toLowerCase()) : true;
     
-    // Vibrant colors matching the reference image
-    const nameUpper = d.name.toUpperCase();
-    let color = '#38bdf8'; // Soft sky blue (Default)
-    if (nameUpper.includes('STARLINK')) {
-      color = '#22d3ee'; // Vibrant Cyan/Teal
-    } else if (nameUpper.includes('ISS') || nameUpper.includes('TIANGONG') || nameUpper.includes('CSS') || nameUpper.includes('SPACE STATION')) {
-      color = '#fbbf24'; // Vibrant Gold/Orange
-    } else if (nameUpper.includes('GPS') || nameUpper.includes('NAVSTAR') || nameUpper.includes('BEIDOU') || nameUpper.includes('GALILEO') || nameUpper.includes('GLONASS')) {
-      color = '#ef4444'; // Vibrant Red
-    }
+    // Vibrant colors matching the reference image and group layers
+    const groupColorMap: Record<string, string> = {
+      stations: '#fbbf24',
+      gps: '#22c55e',
+      glonass: '#84cc16',
+      galileo: '#06b6d4',
+      weather: '#ec4899',
+      oneweb: '#a855f7',
+      starlink: '#3b82f6',
+      brightest: '#ffffff',
+      debris_cosmos: '#f43f5e',
+      debris_iridium: '#fb923c',
+      debris_fengyun: '#ef4444',
+      geo: '#64748b'
+    };
     
-    const opacity = isSearched ? 0.95 : 0.15;
+    const nameUpper = d.name.toUpperCase();
+    let color = (d.group && groupColorMap[d.group]) || '#38bdf8';
+    const opacity = isSearched ? 1.0 : 0.12;
     
     // Return detailed model ONLY if selected to save thousands of draw calls
     if (isSelected) {
@@ -910,7 +989,7 @@ export default function SatelliteGlobe() {
             <div className="absolute inset-0 border-4 border-blue-400 rounded-full border-t-transparent animate-spin"></div>
           </div>
           <span className="text-xl font-light tracking-widest text-blue-300">ESTABLISHING TELEMETRY LINKS...</span>
-          <span className="text-xs text-white/40 mt-2 font-mono uppercase">Fetching orbit vectors ({activeGroup})</span>
+          <span className="text-xs text-white/40 mt-2 font-mono uppercase">Fetching orbit vectors...</span>
         </div>
       )}
 
@@ -924,7 +1003,7 @@ export default function SatelliteGlobe() {
           </div>
           <p className="text-sm text-white/70 leading-relaxed mb-4">{error}</p>
           <button 
-            onClick={() => setActiveGroup(activeGroup)} 
+            onClick={() => window.location.reload()} 
             className="w-full bg-red-900 hover:bg-red-800 text-white text-sm py-2 px-4 rounded-xl transition-all font-medium"
           >
             Retry Telemetry Link
@@ -971,25 +1050,40 @@ export default function SatelliteGlobe() {
         {/* Layers Panel (Matching the requested style) */}
         <div className="bg-[#111622]/85 backdrop-blur-lg border border-white/10 p-5 rounded-2xl text-white shadow-2xl pointer-events-auto flex flex-col gap-4">
           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest block">Layers</span>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto pr-1">
             {GROUPS.map((g) => {
-              const isSelected = activeGroup === g.id;
+              const isEnabled = visibleLayers[g.id];
+              const isLoading = loadingGroups[g.id];
               return (
                 <button
                   key={g.id}
-                  onClick={() => setActiveGroup(g.id)}
-                  className={`text-left text-xs py-2 px-3 rounded-xl transition-all flex items-center justify-between group ${
-                    isSelected
-                      ? 'bg-blue-600/20 text-white border border-blue-500/30 font-medium'
-                      : 'hover:bg-white/5 text-white/60 border border-transparent'
+                  onClick={() => toggleLayer(g.id)}
+                  className={`text-left text-xs py-2 px-3 rounded-xl transition-all flex items-center justify-between pointer-events-auto ${
+                    isEnabled
+                      ? 'bg-blue-600/10 text-white border border-blue-500/20 font-medium'
+                      : 'bg-white/2 border border-transparent text-white/40 hover:text-white/60'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="w-2 rounded-full h-2 shrink-0" style={{ backgroundColor: g.color }} />
+                    <span 
+                      className={`w-2 h-2 rounded-full shrink-0 transition-all ${
+                        isEnabled ? 'shadow-[0_0_8px_currentColor]' : 'opacity-25'
+                      }`} 
+                      style={{ 
+                        backgroundColor: g.color,
+                        color: g.color
+                      }} 
+                    />
                     <span className="truncate">{g.name}</span>
                   </div>
-                  <span className="text-[10px] font-mono text-white/40 group-hover:text-white/80 transition-colors">
-                    {isSelected ? filteredSatellites.length.toLocaleString() : g.count.toLocaleString()}
+                  <span className="text-[10px] font-mono flex items-center gap-1.5">
+                    {isLoading ? (
+                      <span className="w-2 h-2 border-t-2 border-r-2 border-white rounded-full animate-spin" />
+                    ) : (
+                      isEnabled 
+                        ? (loadedSatellites[g.id]?.length ?? g.count).toLocaleString() 
+                        : g.count.toLocaleString()
+                    )}
                   </span>
                 </button>
               );
@@ -997,7 +1091,7 @@ export default function SatelliteGlobe() {
           </div>
 
           {/* Laser Links Toggle */}
-          {activeGroup === 'starlink' && (
+          {visibleLayers.starlink && (
             <div className="pt-3 border-t border-white/5 flex items-center justify-between text-xs pointer-events-auto">
               <span className="text-white/60">Laser Links (ISL)</span>
               <button 
@@ -1081,7 +1175,7 @@ export default function SatelliteGlobe() {
             <div>
               <div className="flex justify-between items-start">
                 <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">
-                  {activeGroup.toUpperCase()}
+                  {(selectedSat.group || 'SATELLITE').toUpperCase()}
                 </span>
                 <button 
                   onClick={() => setSelectedSat(null)}
@@ -1269,33 +1363,45 @@ export default function SatelliteGlobe() {
             
             <div className="flex flex-col gap-2">
               {GROUPS.map((g) => {
-                const isSelected = activeGroup === g.id;
+                const isEnabled = visibleLayers[g.id];
+                const isLoading = loadingGroups[g.id];
                 return (
                   <button
                     key={g.id}
-                    onClick={() => {
-                      setActiveGroup(g.id);
-                      setMobileShowLayers(false);
-                    }}
-                    className={`text-left text-xs py-2.5 px-3 rounded-xl transition-all flex items-center justify-between ${
-                      isSelected
-                        ? 'bg-blue-600/20 text-white border border-blue-500/30 font-medium'
-                        : 'bg-white/5 text-white/60'
+                    onClick={() => toggleLayer(g.id)}
+                    className={`text-left text-xs py-2.5 px-3 rounded-xl transition-all flex items-center justify-between pointer-events-auto ${
+                      isEnabled
+                        ? 'bg-blue-600/10 text-white border border-blue-500/20 font-medium'
+                        : 'bg-white/5 border border-transparent text-white/40'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: g.color }} />
+                      <span 
+                        className={`w-2 h-2 rounded-full shrink-0 transition-all ${
+                          isEnabled ? 'shadow-[0_0_8px_currentColor]' : 'opacity-25'
+                        }`} 
+                        style={{ 
+                          backgroundColor: g.color,
+                          color: g.color
+                        }} 
+                      />
                       <span className="truncate">{g.name}</span>
                     </div>
-                    <span className="text-[10px] font-mono text-white/40">
-                      {isSelected ? filteredSatellites.length.toLocaleString() : g.count.toLocaleString()}
+                    <span className="text-[10px] font-mono flex items-center gap-1.5">
+                      {isLoading ? (
+                        <span className="w-2 h-2 border-t-2 border-r-2 border-white rounded-full animate-spin" />
+                      ) : (
+                        isEnabled 
+                          ? (loadedSatellites[g.id]?.length ?? g.count).toLocaleString() 
+                          : g.count.toLocaleString()
+                      )}
                     </span>
                   </button>
                 );
               })}
             </div>
 
-            {activeGroup === 'starlink' && (
+            {visibleLayers.starlink && (
               <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
                 <span className="text-white/60">Laser Links (ISL)</span>
                 <button 

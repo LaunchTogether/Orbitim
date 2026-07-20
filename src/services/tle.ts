@@ -7,6 +7,7 @@ export interface SatelliteData {
   lng?: number;
   alt?: number;
   speed?: number;
+  group?: string;
 }
 
 export interface TleResult {
@@ -36,14 +37,29 @@ GPS BIIRM-4
 export async function fetchSatellitesByGroup(group: string = 'starlink'): Promise<TleResult> {
   // Map group ID to Satvisor TLE file names
   let fileName = `${group}.tle`;
-  if (group === 'gps') fileName = 'gps-ops.tle';
-  if (group === 'glonass') fileName = 'glo-ops.tle';
-  if (group === 'geo') fileName = 'geo.tle';
-  if (group === 'brightest') fileName = 'visual.tle';
-  if (group === 'debris') fileName = 'iridium-33-debris.tle';
+  let celestrakGroup = group;
+
+  if (group === 'gps') {
+    fileName = 'gps-ops.tle';
+  } else if (group === 'glonass') {
+    fileName = 'glo-ops.tle';
+  } else if (group === 'geo') {
+    fileName = 'geo.tle';
+  } else if (group === 'brightest') {
+    fileName = 'visual.tle';
+  } else if (group === 'debris' || group === 'debris_iridium') {
+    fileName = 'iridium-33-debris.tle';
+    celestrakGroup = 'iridium-33-debris';
+  } else if (group === 'debris_cosmos') {
+    fileName = 'cosmos-2251-debris.tle';
+    celestrakGroup = 'cosmos-2251-debris';
+  } else if (group === 'debris_fengyun') {
+    fileName = '1999-025y.tle';
+    celestrakGroup = '1999-025y';
+  }
 
   const githubUrl = `https://raw.githubusercontent.com/satvisorcom/satvisor-data/master/celestrak/tle/${fileName}`;
-  const celestrakUrl = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`;
+  const celestrakUrl = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${celestrakGroup}&FORMAT=tle`;
   
   // 1. Try to read from cache first
   const cachedData = localStorage.getItem(`${CACHE_KEY_PREFIX}${group}`);
@@ -55,7 +71,7 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
     if (age < TWO_HOURS) {
       console.log(`Using fresh cache for group ${group} (${Math.round(age / 60000)}m old)`);
       return {
-        satellites: parseTLE(cachedData),
+        satellites: parseTLE(cachedData, group),
         source: 'cache'
       };
     }
@@ -75,7 +91,7 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
       localStorage.setItem(`${CACHE_TIME_KEY_PREFIX}${group}`, now.toString());
 
       return {
-        satellites: parseTLE(data),
+        satellites: parseTLE(data, group),
         source: 'live'
       };
     }
@@ -107,7 +123,7 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
     localStorage.setItem(`${CACHE_TIME_KEY_PREFIX}${group}`, now.toString());
 
     return {
-      satellites: parseTLE(data),
+      satellites: parseTLE(data, group),
       source: 'live'
     };
   } catch (error: any) {
@@ -121,7 +137,7 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
         const cdnResponse = await fetch('https://cdn.jsdelivr.net/npm/globe.gl/example/datasets/space-track-leo.txt');
         if (cdnResponse.ok) {
           const cdnData = await cdnResponse.text();
-          const parsed = parseTLE(cdnData);
+          const parsed = parseTLE(cdnData, group);
           // Filter to keep only Starlink satellites
           const starlinks = parsed.filter(s => s.name.toUpperCase().includes('STARLINK'));
           if (starlinks.length > 0) {
@@ -143,7 +159,7 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
         if (localResponse.ok) {
           const localData = await localResponse.text();
           return {
-            satellites: parseTLE(localData),
+            satellites: parseTLE(localData, group),
             source: 'local_fallback',
             errorDetails
           };
@@ -157,7 +173,7 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
     if (cachedData) {
       console.log("Using expired cache as emergency fallback.");
       return {
-        satellites: parseTLE(cachedData),
+        satellites: parseTLE(cachedData, group),
         source: 'cache',
         errorDetails: `${errorDetails} (Using expired cache)`
       };
@@ -166,14 +182,14 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
     // 6. Fallback to hardcoded TLE if absolutely nothing else works
     console.warn("No cache or local files available. Falling back to embedded core satellites.");
     return {
-      satellites: parseTLE(FALLBACK_TLE),
+      satellites: parseTLE(FALLBACK_TLE, group),
       source: 'hardcoded_fallback',
       errorDetails: `${errorDetails} (Using core emergency set)`
     };
   }
 }
 
-export function parseTLE(tleData: string): SatelliteData[] {
+export function parseTLE(tleData: string, group?: string): SatelliteData[] {
   const lines = tleData
     .split('\n')
     .map(line => line.trim())
@@ -191,7 +207,7 @@ export function parseTLE(tleData: string): SatelliteData[] {
         try {
           const satrec = satellite.twoline2satrec(tleLine1, tleLine2);
           if (satrec) {
-            satellites.push({ name, satrec });
+            satellites.push({ name, satrec, group });
           }
         } catch (err) {
           // Skip invalid
