@@ -1887,17 +1887,39 @@ export default function SatelliteGlobe() {
       {/* Playback Controls (Play/Pause/Live + Warp Speed Slider) */}
       {!showLanding && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-[#111622]/90 backdrop-blur-lg border border-white/10 px-5 py-2.5 rounded-full text-white shadow-2xl flex items-center gap-4 pointer-events-auto select-none">
-          <button 
-            onClick={() => {
-              const next = !isTimeFlowing;
-              setIsTimeFlowing(next);
-              setIsRotating(next);
-            }}
-            className="p-2 hover:bg-white/10 rounded-full transition-all text-blue-400 hover:text-white flex items-center justify-center"
-            title={isTimeFlowing ? "Pause Simulation" : "Play Simulation"}
-          >
-            {isTimeFlowing ? <Pause className="h-4.5 w-4.5" /> : <Play className="h-4.5 w-4.5 fill-current" />}
-          </button>
+          {/* Play/Pause Buttons */}
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => {
+                setIsTimeFlowing(false);
+                setIsRotating(false);
+              }}
+              className={`p-1.5 px-2.5 rounded-full transition-all flex items-center gap-1 text-[10px] uppercase font-bold border ${
+                !isTimeFlowing 
+                  ? 'bg-red-500/20 text-red-400 border-red-500/40 font-black shadow-[0_0_8px_rgba(239,68,68,0.2)]' 
+                  : 'text-white/40 hover:text-white/70 border-transparent'
+              }`}
+              title="Durdur"
+            >
+              <Pause className="h-3.5 w-3.5" />
+              <span className="text-[9px] font-mono">Durdur</span>
+            </button>
+            <button 
+              onClick={() => {
+                setIsTimeFlowing(true);
+                setIsRotating(true);
+              }}
+              className={`p-1.5 px-2.5 rounded-full transition-all flex items-center gap-1 text-[10px] uppercase font-bold border ${
+                isTimeFlowing 
+                  ? 'bg-green-500/20 text-green-400 border-green-500/40 font-black shadow-[0_0_8px_rgba(34,197,94,0.2)]' 
+                  : 'text-white/40 hover:text-white/70 border-transparent'
+              }`}
+              title="Oynat"
+            >
+              <Play className="h-3.5 w-3.5 fill-current" />
+              <span className="text-[9px] font-mono">Oynat</span>
+            </button>
+          </div>
           
           <div className="w-px h-4 bg-white/10" />
 
