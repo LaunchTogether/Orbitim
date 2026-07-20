@@ -24,6 +24,14 @@ const GROUPS = [
   { id: 'geo', name: 'Other Active', count: 4425, color: '#64748b' }
 ];
 
+const LUNAR_SATELLITES = [
+  { name: 'Lunar Reconnaissance Orbiter (LRO)', altitude: 50, inclination: 90, color: '#38bdf8', period: 7200, group: 'moon_sats' },
+  { name: 'Lunar Gateway (NRHO)', altitude: 3000, inclination: 85, color: '#fbbf24', period: 28800, group: 'moon_sats' },
+  { name: 'Chang\'e 4 Orbiter', altitude: 100, inclination: 45, color: '#a855f7', period: 7600, group: 'moon_sats' },
+  { name: 'Artemis II Orion', altitude: 120, inclination: 30, color: '#ef4444', period: 7800, group: 'moon_sats' },
+  { name: 'Apollo 11 Command Module', altitude: 110, inclination: 10, color: '#22c55e', period: 7700, group: 'moon_sats' }
+];
+
 
 
 // Geometries for simple dot representation and easy click collision
@@ -138,6 +146,7 @@ export default function SatelliteGlobe() {
     geo: false
   });
   const [loadedSatellites, setLoadedSatellites] = useState<Record<string, SatelliteData[]>>({});
+  const [observationTarget, setObservationTarget] = useState<'earth' | 'moon'>('earth');
   const [loadingGroups, setLoadingGroups] = useState<Record<string, boolean>>({});
   const [positions, setPositions] = useState<SatelliteData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,6 +190,9 @@ export default function SatelliteGlobe() {
 
   // Memoize all currently enabled satellites
   const satellites = useMemo(() => {
+    if (observationTarget === 'moon') {
+      return loadedSatellites.moon_sats || [];
+    }
     let combined: SatelliteData[] = [];
     for (const groupId of Object.keys(visibleLayers)) {
       if (visibleLayers[groupId] && loadedSatellites[groupId]) {
@@ -188,7 +200,7 @@ export default function SatelliteGlobe() {
       }
     }
     return combined;
-  }, [visibleLayers, loadedSatellites]);
+  }, [visibleLayers, loadedSatellites, observationTarget]);
 
   // States for Globe.gl layers
   const [paths, setPaths] = useState<any[]>([]);
@@ -206,13 +218,42 @@ export default function SatelliteGlobe() {
     }
   }, [texturesLoaded, selectedSat, isRotating]);
 
-  // Load default active layers on mount
+  // Load default active layers on mount or target change
   useEffect(() => {
     let active = true;
     const initLoad = async () => {
       setLoading(true);
       setError(null);
       setErrorDetails('');
+      setSelectedSat(null);
+      setSelectedSatLive(null);
+      setPaths([]);
+      setRings([]);
+      
+      if (observationTarget === 'moon') {
+        // Load lunar satellites locally
+        const mockData = LUNAR_SATELLITES.map(s => {
+          return {
+            name: s.name,
+            group: 'moon_sats',
+            satrec: {
+              satnum: Math.floor(Math.random() * 100000),
+            },
+            lat: 0,
+            lng: 0,
+            alt: s.altitude / 1737, // Moon radius is 1737km
+            speed: Math.sqrt(4902.8 / (1737 + s.altitude)), // Moon orbital velocity
+            lunarOrbit: s // store original specs for custom Keplerian propagation
+          } as any;
+        });
+
+        if (active) {
+          setLoadedSatellites({ moon_sats: mockData });
+          setLoading(false);
+        }
+        return;
+      }
+      
       try {
         const defaults = ['starlink', 'stations'];
         const loaded: Record<string, SatelliteData[]> = {};
@@ -241,7 +282,7 @@ export default function SatelliteGlobe() {
     
     initLoad();
     return () => { active = false; };
-  }, []);
+  }, [observationTarget]);
 
   // Callback to toggle layer visibility and lazy-load data
   const toggleLayer = useCallback(async (groupId: string) => {
@@ -546,36 +587,55 @@ export default function SatelliteGlobe() {
     }
 
     // Propagate selected satellite for telemetry & paths
-    if (selectedSat && selectedSat.satrec) {
-      const gmst = satellite.gstime(now);
-      const posVel = satellite.propagate(selectedSat.satrec, now);
-      if (posVel && posVel.position && typeof posVel.position !== 'boolean') {
-        const gd = satellite.eciToGeodetic(posVel.position, gmst);
-        const lat = satellite.degreesLat(gd.latitude);
-        const lng = satellite.degreesLong(gd.longitude);
-        const alt = gd.height / EARTH_RADIUS_KM;
-
-        let speed = 0;
-        if (posVel && posVel.velocity && typeof posVel.velocity !== 'boolean') {
-          speed = Math.sqrt(
-            posVel.velocity.x * posVel.velocity.x +
-            posVel.velocity.y * posVel.velocity.y +
-            posVel.velocity.z * posVel.velocity.z
-          );
-        }
+    if (selectedSat) {
+      if (observationTarget === 'moon' && (selectedSat as any).lunarOrbit) {
+        const orbit = (selectedSat as any).lunarOrbit;
+        const t = now.getTime() / 1000;
+        const angle = (2 * Math.PI * t) / orbit.period + ((selectedSat as any).phase || 0);
+        
+        // In degrees:
+        const lat = orbit.inclination * Math.sin(angle);
+        const lng = ((angle * 180) / Math.PI) % 360;
+        const alt = orbit.altitude;
 
         setSelectedSatLive({
           ...selectedSat,
           lat,
           lng,
-          alt,
-          speed
+          alt: alt / 1737,
+          speed: Math.sqrt(4902.8 / (1737 + alt))
         });
+      } else if (selectedSat.satrec) {
+        const gmst = satellite.gstime(now);
+        const posVel = satellite.propagate(selectedSat.satrec, now);
+        if (posVel && posVel.position && typeof posVel.position !== 'boolean') {
+          const gd = satellite.eciToGeodetic(posVel.position, gmst);
+          const lat = satellite.degreesLat(gd.latitude);
+          const lng = satellite.degreesLong(gd.longitude);
+          const alt = gd.height / EARTH_RADIUS_KM;
+
+          let speed = 0;
+          if (posVel && posVel.velocity && typeof posVel.velocity !== 'boolean') {
+            speed = Math.sqrt(
+              posVel.velocity.x * posVel.velocity.x +
+              posVel.velocity.y * posVel.velocity.y +
+              posVel.velocity.z * posVel.velocity.z
+            );
+          }
+
+          setSelectedSatLive({
+            ...selectedSat,
+            lat,
+            lng,
+            alt,
+            speed
+          });
+        }
       }
     } else {
       setSelectedSatLive(null);
     }
-  }, [simTime, selectedSat, isTimeFlowing]);
+  }, [simTime, selectedSat, isTimeFlowing, observationTarget]);
 
   // Setup initial positions and paths when satellites are loaded or toggled
   useEffect(() => {
@@ -658,9 +718,7 @@ export default function SatelliteGlobe() {
     const laserPaths = paths.filter(p => p.isLaser);
     newPaths.push(...laserPaths);
 
-    if (selectedSatLive && selectedSatLive.satrec) {
-      const now = frozenTimeRef.current || new Date();
-
+    if (selectedSatLive) {
       // Label
       newLabels.push({
         lat: selectedSatLive.lat,
@@ -670,45 +728,66 @@ export default function SatelliteGlobe() {
 
       // Orbit Path
       if (showSelectedOrbit) {
-        const pathPointsPast: [number, number, number][] = [];
-        const pathPointsFuture: [number, number, number][] = [];
-        
-        // Calculate orbit (past 45m and future 45m)
-        for (let i = -45; i <= 45; i += 1.5) {
-          const futureDate = new Date(now.getTime() + i * 60000);
-          const futureGmst = satellite.gstime(futureDate);
-          const posVel = satellite.propagate(selectedSatLive.satrec, futureDate);
+        if (observationTarget === 'moon' && (selectedSatLive as any).lunarOrbit) {
+          const orbit = (selectedSatLive as any).lunarOrbit;
+          const pathPoints: [number, number, number][] = [];
           
-          if (posVel && posVel.position && typeof posVel.position !== 'boolean') {
-            const posGd = satellite.eciToGeodetic(posVel.position, futureGmst);
-            const pt: [number, number, number] = [
-              satellite.degreesLat(posGd.latitude),
-              satellite.degreesLong(posGd.longitude),
-              posGd.height / EARTH_RADIUS_KM
-            ];
-            if (i <= 0) {
-              pathPointsPast.push(pt);
-            } else {
-              pathPointsFuture.push(pt);
-            }
+          for (let j = 0; j <= 360; j += 4) {
+            const angle = (j * Math.PI) / 180;
+            const lat = orbit.inclination * Math.sin(angle);
+            const lng = j;
+            const alt = orbit.altitude / 1737;
+            pathPoints.push([lat, lng, alt]);
           }
-        }
 
-        if (pathPointsPast.length > 0) {
           newPaths.push({
-            coords: pathPointsPast,
-            isNadir: false,
-            isLaser: false,
-            isPastOrbit: true
-          });
-        }
-        if (pathPointsFuture.length > 0) {
-          newPaths.push({
-            coords: pathPointsFuture,
+            coords: pathPoints,
             isNadir: false,
             isLaser: false,
             isFutureOrbit: true
           });
+        } else if (selectedSatLive.satrec) {
+          const now = frozenTimeRef.current || new Date();
+          const pathPointsPast: [number, number, number][] = [];
+          const pathPointsFuture: [number, number, number][] = [];
+          
+          // Calculate orbit (past 45m and future 45m)
+          for (let i = -45; i <= 45; i += 1.5) {
+            const futureDate = new Date(now.getTime() + i * 60000);
+            const futureGmst = satellite.gstime(futureDate);
+            const posVel = satellite.propagate(selectedSatLive.satrec, futureDate);
+            
+            if (posVel && posVel.position && typeof posVel.position !== 'boolean') {
+              const posGd = satellite.eciToGeodetic(posVel.position, futureGmst);
+              const pt: [number, number, number] = [
+                satellite.degreesLat(posGd.latitude),
+                satellite.degreesLong(posGd.longitude),
+                posGd.height / EARTH_RADIUS_KM
+              ];
+              if (i <= 0) {
+                pathPointsPast.push(pt);
+              } else {
+                pathPointsFuture.push(pt);
+              }
+            }
+          }
+
+          if (pathPointsPast.length > 0) {
+            newPaths.push({
+              coords: pathPointsPast,
+              isNadir: false,
+              isLaser: false,
+              isPastOrbit: true
+            });
+          }
+          if (pathPointsFuture.length > 0) {
+            newPaths.push({
+              coords: pathPointsFuture,
+              isNadir: false,
+              isLaser: false,
+              isFutureOrbit: true
+            });
+          }
         }
       }
 
@@ -750,6 +829,92 @@ export default function SatelliteGlobe() {
       }, 1000);
     }
   }, [selectedSat]);
+
+  // Swap the orbiting celestial body's texture between Earth and Moon based on observationTarget
+  useEffect(() => {
+    const globe = globeRef.current;
+    if (!globe) return;
+    const scene = globe.scene();
+    if (!scene) return;
+
+    const bodyMesh = scene.getObjectByName('moon-visual') as THREE.Mesh;
+    if (bodyMesh) {
+      const loader = new THREE.TextureLoader();
+      if (observationTarget === 'moon') {
+        // The orbiting body is now the Earth! Load Earth texture.
+        loader.load('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg', (tex) => {
+          bodyMesh.material = new THREE.MeshStandardMaterial({
+            map: tex,
+            roughness: 0.4,
+            metalness: 0.1
+          });
+        });
+      } else {
+        // The orbiting body is now the Moon! Restore procedural Moon texture.
+        const moonCanvas = document.createElement('canvas');
+        moonCanvas.width = 128;
+        moonCanvas.height = 64;
+        const mCtx = moonCanvas.getContext('2d')!;
+        mCtx.fillStyle = '#7e838c';
+        mCtx.fillRect(0, 0, 128, 64);
+        for (let i = 0; i < 40; i++) {
+          const x = Math.random() * 128;
+          const y = Math.random() * 64;
+          const r = 2 + Math.random() * 6;
+          const grad = mCtx.createRadialGradient(x, y, 0, x, y, r);
+          grad.addColorStop(0, 'rgba(40, 42, 46, 0.95)');
+          grad.addColorStop(0.5, 'rgba(70, 74, 80, 0.7)');
+          grad.addColorStop(0.8, 'rgba(180, 185, 195, 0.5)');
+          grad.addColorStop(1, 'rgba(126, 131, 140, 0)');
+          mCtx.fillStyle = grad;
+          mCtx.beginPath();
+          mCtx.arc(x, y, r, 0, Math.PI * 2);
+          mCtx.fill();
+        }
+        const moonTex = new THREE.CanvasTexture(moonCanvas);
+        bodyMesh.material = new THREE.MeshStandardMaterial({
+          map: moonTex,
+          roughness: 0.9,
+          metalness: 0.05
+        });
+      }
+    }
+  }, [observationTarget, texturesLoaded]);
+
+  // Click handler to switch target when clicking on the orbiting celestial body directly in the sky
+  useEffect(() => {
+    const handleCanvasClick = (e: MouseEvent) => {
+      const globe = globeRef.current;
+      if (!globe) return;
+      
+      const container = document.querySelector('.scene-container');
+      if (!container) return;
+      
+      // Calculate normalized mouse coordinates
+      const rect = container.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      const raycaster = new THREE.Raycaster();
+      const camera = globe.camera();
+      const scene = globe.scene();
+      
+      if (camera && scene) {
+        raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+        const bodyMesh = scene.getObjectByName('moon-visual');
+        if (bodyMesh) {
+          const intersects = raycaster.intersectObject(bodyMesh);
+          if (intersects.length > 0) {
+            // Clicked the orbiting body! Swap targets!
+            setObservationTarget(prev => prev === 'earth' ? 'moon' : 'earth');
+          }
+        }
+      }
+    };
+
+    window.addEventListener('click', handleCanvasClick);
+    return () => window.removeEventListener('click', handleCanvasClick);
+  }, []);
 
   // Dynamically update camera focus to follow selected satellite along its orbit path
   useEffect(() => {
@@ -1068,6 +1233,32 @@ export default function SatelliteGlobe() {
           </div>
         </div>
 
+        {/* Observation Target Selector */}
+        <div className="bg-[#111622]/85 backdrop-blur-lg border border-white/10 p-3 rounded-xl text-white shadow-2xl pointer-events-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Compass className="h-4 w-4 text-blue-400" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-white/70">Observation Target</span>
+          </div>
+          <div className="flex items-center bg-slate-950/60 p-0.5 rounded-lg border border-white/5">
+            <button
+              onClick={() => setObservationTarget('earth')}
+              className={`text-[9px] font-mono font-bold px-3 py-1 rounded-md transition-all ${
+                observationTarget === 'earth' ? 'bg-blue-600 text-white shadow' : 'text-white/40 hover:text-white/70'
+              }`}
+            >
+              EARTH
+            </button>
+            <button
+              onClick={() => setObservationTarget('moon')}
+              className={`text-[9px] font-mono font-bold px-3 py-1 rounded-md transition-all ${
+                observationTarget === 'moon' ? 'bg-purple-600 text-white shadow' : 'text-white/40 hover:text-white/70'
+              }`}
+            >
+              MOON
+            </button>
+          </div>
+        </div>
+
         {/* Search Panel (Matching the requested style) */}
         <div className="bg-[#111622]/90 backdrop-blur-lg border border-blue-500/50 px-4 py-2.5 rounded-lg text-white shadow-2xl pointer-events-auto flex items-center gap-3 w-full transition-colors focus-within:border-blue-400">
           <Search className="h-4 w-4 text-white/40" />
@@ -1089,43 +1280,54 @@ export default function SatelliteGlobe() {
         <div className="bg-[#111622]/85 backdrop-blur-lg border border-white/10 p-5 rounded-2xl text-white shadow-2xl pointer-events-auto flex flex-col gap-4">
           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest block">Layers</span>
           <div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto pr-1">
-            {GROUPS.map((g) => {
-              const isEnabled = visibleLayers[g.id];
-              const isLoading = loadingGroups[g.id];
-              return (
-                <button
-                  key={g.id}
-                  onClick={() => toggleLayer(g.id)}
-                  className={`text-left text-xs py-2 px-3 rounded-xl transition-all flex items-center justify-between pointer-events-auto ${
-                    isEnabled
-                      ? 'bg-blue-600/10 text-white border border-blue-500/20 font-medium'
-                      : 'bg-white/2 border border-transparent text-white/40 hover:text-white/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span 
-                      className={`w-2 h-2 rounded-full shrink-0 transition-all ${
-                        isEnabled ? 'shadow-[0_0_8px_currentColor]' : 'opacity-25'
-                      }`} 
-                      style={{ 
-                        backgroundColor: g.color,
-                        color: g.color
-                      }} 
-                    />
-                    <span className="truncate">{g.name}</span>
-                  </div>
-                  <span className="text-[10px] font-mono flex items-center gap-1.5">
-                    {isLoading ? (
-                      <span className="w-2 h-2 border-t-2 border-r-2 border-white rounded-full animate-spin" />
-                    ) : (
-                      isEnabled 
-                        ? (loadedSatellites[g.id]?.length ?? g.count).toLocaleString() 
-                        : g.count.toLocaleString()
-                    )}
+            {observationTarget === 'moon' ? (
+              <button
+                className="text-left text-xs py-2.5 px-3.5 rounded-xl bg-purple-600/10 border border-purple-500/20 text-white font-medium flex items-center justify-between pointer-events-none"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_#a855f7] animate-pulse" />
+                  <span>Lunar Satellites</span>
+                </div>
+                <span className="text-[10px] font-mono text-purple-300 font-bold">{LUNAR_SATELLITES.length} ACTIVE</span>
+              </button>
+            ) : (
+              GROUPS.map((g) => {
+                const isEnabled = visibleLayers[g.id];
+                const isLoading = loadingGroups[g.id];
+                return (
+                  <button
+                    key={g.id}
+                    onClick={() => toggleLayer(g.id)}
+                    className={`text-left text-xs py-2 px-3 rounded-xl transition-all flex items-center justify-between pointer-events-auto ${
+                      isEnabled
+                        ? 'bg-blue-600/10 text-white border border-blue-500/20 font-medium'
+                        : 'bg-white/2 border border-transparent text-white/40 hover:text-white/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span 
+                        className={`w-2 h-2 rounded-full shrink-0 transition-all ${
+                          isEnabled ? 'shadow-[0_0_8px_currentColor]' : 'opacity-25'
+                        }`} 
+                        style={{ 
+                          backgroundColor: g.color,
+                          color: g.color
+                        }} 
+                      />
+                      <span className="truncate">{g.name}</span>
+                    </div>
+                    <span className="text-[10px] font-mono flex items-center gap-1.5">
+                      {isLoading ? (
+                        <span className="w-2 h-2 border-t-2 border-r-2 border-white rounded-full animate-spin" />
+                      ) : (
+                        isEnabled 
+                          ? (loadedSatellites[g.id]?.length ?? g.count).toLocaleString() 
+                          : g.count.toLocaleString()
+                      )}
                   </span>
                 </button>
               );
-            })}
+            }))}
           </div>
 
           {/* Laser Links Toggle */}
@@ -1332,7 +1534,24 @@ export default function SatelliteGlobe() {
           <div className="absolute top-0 left-0 right-0 z-20 bg-[#111622]/90 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center justify-between md:hidden pointer-events-auto">
             <div className="flex items-center gap-2">
               <img src={logoImg} alt="Orbitim Logo" className="h-7 w-auto drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]" />
-              <span className="text-white font-extrabold tracking-tight text-xs bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">ORBITIM 3D</span>
+              <div className="flex items-center bg-slate-950/60 p-0.5 rounded-lg border border-white/5 ml-1">
+                <button
+                  onClick={() => setObservationTarget('earth')}
+                  className={`text-[8px] font-mono font-bold px-2 py-0.5 rounded transition-all ${
+                    observationTarget === 'earth' ? 'bg-blue-600 text-white' : 'text-white/40'
+                  }`}
+                >
+                  EARTH
+                </button>
+                <button
+                  onClick={() => setObservationTarget('moon')}
+                  className={`text-[8px] font-mono font-bold px-2 py-0.5 rounded transition-all ${
+                    observationTarget === 'moon' ? 'bg-purple-600 text-white' : 'text-white/40'
+                  }`}
+                >
+                  MOON
+                </button>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <button 
@@ -1400,43 +1619,55 @@ export default function SatelliteGlobe() {
             </div>
             
             <div className="flex flex-col gap-2">
-              {GROUPS.map((g) => {
-                const isEnabled = visibleLayers[g.id];
-                const isLoading = loadingGroups[g.id];
-                return (
-                  <button
-                    key={g.id}
-                    onClick={() => toggleLayer(g.id)}
-                    className={`text-left text-xs py-2.5 px-3 rounded-xl transition-all flex items-center justify-between pointer-events-auto ${
-                      isEnabled
-                        ? 'bg-blue-600/10 text-white border border-blue-500/20 font-medium'
-                        : 'bg-white/5 border border-transparent text-white/40'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span 
-                        className={`w-2 h-2 rounded-full shrink-0 transition-all ${
-                          isEnabled ? 'shadow-[0_0_8px_currentColor]' : 'opacity-25'
-                        }`} 
-                        style={{ 
-                          backgroundColor: g.color,
-                          color: g.color
-                        }} 
-                      />
-                      <span className="truncate">{g.name}</span>
-                    </div>
-                    <span className="text-[10px] font-mono flex items-center gap-1.5">
-                      {isLoading ? (
-                        <span className="w-2 h-2 border-t-2 border-r-2 border-white rounded-full animate-spin" />
-                      ) : (
-                        isEnabled 
-                          ? (loadedSatellites[g.id]?.length ?? g.count).toLocaleString() 
-                          : g.count.toLocaleString()
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
+              {observationTarget === 'moon' ? (
+                <button
+                  className="text-left text-xs py-2.5 px-3.5 rounded-xl bg-purple-600/10 border border-purple-500/20 text-white font-medium flex items-center justify-between pointer-events-none"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_#a855f7] animate-pulse" />
+                    <span>Lunar Satellites</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-purple-300 font-bold">{LUNAR_SATELLITES.length} ACTIVE</span>
+                </button>
+              ) : (
+                GROUPS.map((g) => {
+                  const isEnabled = visibleLayers[g.id];
+                  const isLoading = loadingGroups[g.id];
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => toggleLayer(g.id)}
+                      className={`text-left text-xs py-2.5 px-3 rounded-xl transition-all flex items-center justify-between pointer-events-auto ${
+                        isEnabled
+                          ? 'bg-blue-600/10 text-white border border-blue-500/20 font-medium'
+                          : 'bg-white/5 border border-transparent text-white/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span 
+                          className={`w-2 h-2 rounded-full shrink-0 transition-all ${
+                            isEnabled ? 'shadow-[0_0_8px_currentColor]' : 'opacity-25'
+                          }`} 
+                          style={{ 
+                            backgroundColor: g.color,
+                            color: g.color
+                          }} 
+                        />
+                        <span className="truncate">{g.name}</span>
+                      </div>
+                      <span className="text-[10px] font-mono flex items-center gap-1.5">
+                        {isLoading ? (
+                          <span className="w-2 h-2 border-t-2 border-r-2 border-white rounded-full animate-spin" />
+                        ) : (
+                          isEnabled 
+                            ? (loadedSatellites[g.id]?.length ?? g.count).toLocaleString() 
+                            : g.count.toLocaleString()
+                        )}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
             </div>
 
             {visibleLayers.starlink && (
@@ -1564,9 +1795,20 @@ export default function SatelliteGlobe() {
           globeMaterial={globeMaterial || undefined}
           backgroundColor="#0e131f"
           
-          showAtmosphere={true}
+          showAtmosphere={observationTarget === 'earth'}
           atmosphereColor="#58c0ff" 
           atmosphereAltitude={0.25}
+
+          globeImageUrl={
+            observationTarget === 'earth' 
+              ? '//unpkg.com/three-globe/example/img/earth-blue-marble.jpg'
+              : '//unpkg.com/three-globe/example/img/earth-lunar-surface.jpg'
+          }
+          bumpImageUrl={
+            observationTarget === 'earth'
+              ? '//unpkg.com/three-globe/example/img/earth-topology.png'
+              : '//unpkg.com/three-globe/example/img/earth-lunar-surface.jpg'
+          }
 
           // Satellites 3D custom models
           objectsData={filteredSatellites}
