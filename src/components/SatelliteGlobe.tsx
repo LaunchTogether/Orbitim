@@ -150,6 +150,31 @@ function getSharedMaterial(color: string, opacity: number): THREE.MeshBasicMater
   return materialCache[key];
 }
 
+// Format TLE epoch yr and day fraction into UTC date string
+function getTleEpochDate(satrec: any): string {
+  if (!satrec) return '';
+  try {
+    const year = satrec.epochyr < 57 ? 2000 + satrec.epochyr : 1900 + satrec.epochyr;
+    const date = new Date(Date.UTC(year, 0, 1));
+    date.setUTCDate(date.getUTCDate() + Math.floor(satrec.epochdays - 1));
+    const fracDay = satrec.epochdays % 1;
+    const ms = fracDay * 24 * 60 * 60 * 1000;
+    const epochDate = new Date(date.getTime() + ms);
+    
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const yyyy = epochDate.getUTCFullYear();
+    const mm = pad(epochDate.getUTCMonth() + 1);
+    const dd = pad(epochDate.getUTCDate());
+    const hh = pad(epochDate.getUTCHours());
+    const min = pad(epochDate.getUTCMinutes());
+    const sec = pad(epochDate.getUTCSeconds());
+    
+    return `TLE ${yyyy}-${mm}-${dd} ${hh}:${pad(Number(min))}:${sec} UTC`;
+  } catch (e) {
+    return 'TLE DATE UNKNOWN';
+  }
+}
+
 // Convert spherical coordinates to Cartesian for Sun and Moon positioning
 function sphericalToCartesian(lat: number, lng: number, radius: number): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -219,6 +244,10 @@ export default function SatelliteGlobe() {
   const sunVectorRef = useRef<THREE.Vector3>(new THREE.Vector3(1, 0, 0));
   const [mobileShowLayers, setMobileShowLayers] = useState(false);
   const [mobileShowSearch, setMobileShowSearch] = useState(false);
+  const [showSelectedOrbit, setShowSelectedOrbit] = useState(true);
+  const [showSelectedFootprint, setShowSelectedFootprint] = useState(true);
+  const [followSelected, setFollowSelected] = useState(true);
+  const [labels, setLabels] = useState<any[]>([]);
 
   // States for Globe.gl layers
   const [paths, setPaths] = useState<any[]>([]);
@@ -562,48 +591,89 @@ export default function SatelliteGlobe() {
       // Calculate paths and footprints
       const newPaths: any[] = [];
       const newRings: any[] = [];
+      const newLabels: any[] = [];
 
       if (selectedSat) {
         const currentSat = propagated.find(s => s.name === selectedSat.name);
         if (currentSat && currentSat.lat !== undefined) {
-          const pathPoints: any[] = [];
-          
-          for (let i = 0; i <= 90; i += 2) {
-            const futureTime = new Date(now.getTime() + i * 60000);
-            const futureGmst = satellite.gstime(futureTime);
-            const posVel = satellite.propagate(currentSat.satrec, futureTime);
-            if (!posVel) continue;
-            const posEci = posVel.position;
+          // Label above the selected satellite
+          newLabels.push({
+            lat: currentSat.lat,
+            lng: currentSat.lng,
+            text: currentSat.name
+          });
+
+          // Orbit path calculations (Past + Future paths)
+          if (showSelectedOrbit) {
+            const pathPointsPast: any[] = [];
+            const pathPointsFuture: any[] = [];
             
-            if (posEci && typeof posEci !== 'boolean') {
-              const posGd = satellite.eciToGeodetic(posEci, futureGmst);
-              pathPoints.push({
-                lat: satellite.degreesLat(posGd.latitude),
-                lng: satellite.degreesLong(posGd.longitude),
-                alt: posGd.height / EARTH_RADIUS_KM
+            // Past 45 minutes (-45 to 0)
+            for (let i = -45; i <= 0; i += 1.5) {
+              const futureTime = new Date(now.getTime() + i * 60000);
+              const futureGmst = satellite.gstime(futureTime);
+              const posVel = satellite.propagate(currentSat.satrec, futureTime);
+              if (!posVel) continue;
+              const posEci = posVel.position;
+              
+              if (posEci && typeof posEci !== 'boolean') {
+                const posGd = satellite.eciToGeodetic(posEci, futureGmst);
+                pathPointsPast.push([
+                  satellite.degreesLat(posGd.latitude),
+                  satellite.degreesLong(posGd.longitude),
+                  posGd.height / EARTH_RADIUS_KM
+                ]);
+              }
+            }
+
+            // Future 45 minutes (0 to 45)
+            for (let i = 0; i <= 45; i += 1.5) {
+              const futureTime = new Date(now.getTime() + i * 60000);
+              const futureGmst = satellite.gstime(futureTime);
+              const posVel = satellite.propagate(currentSat.satrec, futureTime);
+              if (!posVel) continue;
+              const posEci = posVel.position;
+              
+              if (posEci && typeof posEci !== 'boolean') {
+                const posGd = satellite.eciToGeodetic(posEci, futureGmst);
+                pathPointsFuture.push([
+                  satellite.degreesLat(posGd.latitude),
+                  satellite.degreesLong(posGd.longitude),
+                  posGd.height / EARTH_RADIUS_KM
+                ]);
+              }
+            }
+
+            if (pathPointsPast.length > 0) {
+              newPaths.push({
+                coords: pathPointsPast,
+                isNadir: false,
+                isLaser: false,
+                isPastOrbit: true
+              });
+            }
+            if (pathPointsFuture.length > 0) {
+              newPaths.push({
+                coords: pathPointsFuture,
+                isNadir: false,
+                isLaser: false,
+                isFutureOrbit: true
               });
             }
           }
-          
-          if (pathPoints.length > 0) {
-            // Selected Orbit Path
-            newPaths.push({
-              coords: pathPoints.map(p => [p.lat, p.lng, p.alt]),
-              isNadir: false,
-              isLaser: false
-            });
 
-            // Nadir Downlink Beam
-            newPaths.push({
-              coords: [
-                [currentSat.lat, currentSat.lng, currentSat.alt || 0.1],
-                [currentSat.lat, currentSat.lng, 0.005]
-              ],
-              isNadir: true,
-              isLaser: false
-            });
+          // Nadir Downlink Beam
+          newPaths.push({
+            coords: [
+              [currentSat.lat, currentSat.lng, currentSat.alt || 0.1],
+              [currentSat.lat, currentSat.lng, 0.005]
+            ],
+            isNadir: true,
+            isLaser: false
+          });
 
-            // Footprint Ring
+          // Footprint Ring
+          if (showSelectedFootprint) {
             newRings.push({
               lat: currentSat.lat,
               lng: currentSat.lng,
@@ -651,6 +721,7 @@ export default function SatelliteGlobe() {
 
       setPaths(newPaths);
       setRings(newRings);
+      setLabels(newLabels);
     };
 
     updatePositions();
@@ -659,18 +730,34 @@ export default function SatelliteGlobe() {
     const interval = setInterval(updatePositions, intervalTime);
 
     return () => clearInterval(interval);
-  }, [satellites, selectedSat, showLaserLinks, activeGroup]);
+  }, [satellites, selectedSat, showLaserLinks, activeGroup, showSelectedOrbit, showSelectedFootprint]);
 
-  // Adjust camera to focus on selected satellite
+  // Adjust camera to focus on selected satellite when clicked
   useEffect(() => {
     if (selectedSat && selectedSat.lat !== undefined && globeRef.current) {
+      const currentAltitude = globeRef.current.pointOfView().altitude;
       globeRef.current.pointOfView({
         lat: selectedSat.lat,
         lng: selectedSat.lng,
-        altitude: 2.0
+        altitude: currentAltitude > 2.5 ? 2.0 : currentAltitude
       }, 1000);
     }
   }, [selectedSat]);
+
+  // Dynamically update camera focus to follow selected satellite along its orbit path
+  useEffect(() => {
+    if (selectedSat && followSelected && globeRef.current) {
+      const currentSat = positions.find(s => s.name === selectedSat.name);
+      if (currentSat && currentSat.lat !== undefined) {
+        const currentPOV = globeRef.current.pointOfView();
+        globeRef.current.pointOfView({
+          lat: currentSat.lat,
+          lng: currentSat.lng,
+          altitude: currentPOV.altitude
+        }, 800);
+      }
+    }
+  }, [positions, selectedSat, followSelected]);
 
   // Filter based on search query
   const filteredSatellites = useMemo(() => {
@@ -817,6 +904,9 @@ export default function SatelliteGlobe() {
     
     return mesh;
   }, [selectedSat, searchQuery]);
+
+  const satrec = selectedSat?.satrec;
+  const tleDateString = satrec ? getTleEpochDate(satrec) : 'TLE 2026-07-20 00:00:00 UTC';
 
   return (
     <div className="absolute inset-0 bg-[#0e131f] flex overflow-hidden">
@@ -1067,55 +1157,105 @@ export default function SatelliteGlobe() {
 
         {/* Target Locked Panel */}
         {selectedSat && selectedSat.lat !== undefined && (
-          <div className="bg-black/60 backdrop-blur-lg border border-blue-500/20 p-5 rounded-2xl text-white shadow-2xl pointer-events-auto border-l-4 border-l-blue-500 transition-all duration-300">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <span className="text-[9px] bg-blue-500/20 text-blue-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Target Locked</span>
-                <h3 className="text-lg font-bold truncate w-48 mt-1 tracking-tight">{selectedSat.name}</h3>
+          <div className="bg-[#111622]/95 backdrop-blur-lg border border-white/10 p-5 rounded-2xl text-white shadow-2xl pointer-events-auto w-80 relative flex flex-col gap-4">
+            {/* Header info */}
+            <div>
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">
+                  {activeGroup.toUpperCase()}
+                </span>
+                <button 
+                  onClick={() => setSelectedSat(null)}
+                  className="text-white/40 hover:text-white transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
+              <h2 className="text-xl font-bold truncate tracking-tight mt-1">
+                {selectedSat.name}
+              </h2>
+              <span className="text-[10px] text-slate-500 font-mono">
+                NORAD {satrec ? satrec.satnum : '00000'}
+              </span>
+            </div>
+
+            {/* Grid Layout of parameters */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-[#181f30]/40 border border-white/5 p-3 rounded-lg flex flex-col">
+                <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">ALTITUDE</span>
+                <span className="text-sm font-mono text-white mt-1">
+                  {Math.round((selectedSat.alt ?? 0) * EARTH_RADIUS_KM).toFixed(1)} km
+                </span>
+              </div>
+              <div className="bg-[#181f30]/40 border border-white/5 p-3 rounded-lg flex flex-col">
+                <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">SPEED</span>
+                <span className="text-sm font-mono text-white mt-1">
+                  {(selectedSat.speed ?? 0).toFixed(2)} km/s
+                </span>
+              </div>
+              <div className="bg-[#181f30]/40 border border-white/5 p-3 rounded-lg flex flex-col">
+                <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">LATITUDE</span>
+                <span className="text-sm font-mono text-white mt-1">
+                  {Math.abs(selectedSat.lat ?? 0).toFixed(2)}° {(selectedSat.lat ?? 0) >= 0 ? 'N' : 'S'}
+                </span>
+              </div>
+              <div className="bg-[#181f30]/40 border border-white/5 p-3 rounded-lg flex flex-col">
+                <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">LONGITUDE</span>
+                <span className="text-sm font-mono text-white mt-1">
+                  {Math.abs(selectedSat.lng ?? 0).toFixed(2)}° {(selectedSat.lng ?? 0) >= 0 ? 'E' : 'W'}
+                </span>
+              </div>
+              <div className="bg-[#181f30]/40 border border-white/5 p-3 rounded-lg flex flex-col">
+                <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">PERIOD</span>
+                <span className="text-sm font-mono text-white mt-1">
+                  {satrec ? ((2 * Math.PI) / satrec.no).toFixed(1) : '94.0'} min
+                </span>
+              </div>
+              <div className="bg-[#181f30]/40 border border-white/5 p-3 rounded-lg flex flex-col">
+                <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">INCLINATION</span>
+                <span className="text-sm font-mono text-white mt-1">
+                  {satrec ? ((satrec.inclo * 180) / Math.PI).toFixed(2) : '53.16'}°
+                </span>
+              </div>
+            </div>
+
+            {/* TLE Date */}
+            <div className="text-[9px] text-slate-500 font-mono">
+              {tleDateString}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
               <button 
-                onClick={() => setSelectedSat(null)}
-                className="p-1 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors"
+                onClick={() => setShowSelectedOrbit(!showSelectedOrbit)}
+                className={`flex-1 border text-center text-[10px] uppercase tracking-wider py-2 rounded-lg font-bold transition-all ${
+                  showSelectedOrbit 
+                    ? 'border-blue-500/50 bg-blue-950/30 text-blue-300 shadow-inner' 
+                    : 'border-white/10 text-white/40 hover:text-white'
+                }`}
               >
-                <X className="h-4 w-4" />
+                Orbit
               </button>
-            </div>
-
-            {/* Selected Satellite Mini-Asset */}
-            <div className="h-28 bg-blue-950/20 border border-blue-500/10 rounded-xl mb-4 flex items-center justify-center relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent z-10" />
-              <img 
-                src={starlinkImg} 
-                alt="Satellite Locked Graphic"
-                className="w-full h-full object-cover opacity-80" 
-              />
-              <div className="absolute top-2 right-2 z-20 flex items-center gap-1 font-mono text-[8px] text-blue-400">
-                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping" />
-                <span>Active Telemetry</span>
-              </div>
-            </div>
-
-            <div className="space-y-3 font-mono text-xs border-t border-white/5 pt-3">
-              <div className="flex justify-between">
-                <span className="text-white/40">LATITUDE:</span>
-                <span className="text-blue-300">{(selectedSat.lat ?? 0).toFixed(4)}°</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white/40">LONGITUDE:</span>
-                <span className="text-blue-300">{(selectedSat.lng ?? 0).toFixed(4)}°</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white/40">ALTITUDE:</span>
-                <span className="text-blue-300">{Math.round((selectedSat.alt ?? 0) * EARTH_RADIUS_KM)} km</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-white/40">SPEED:</span>
-                <span className="text-emerald-400">{(selectedSat.speed ?? 0).toFixed(2)} km/s</span>
-              </div>
-              <div className="flex justify-between text-[10px] text-white/30 border-t border-white/5 pt-2">
-                <span>PERIOD:</span>
-                <span>~90 Mins (LEO)</span>
-              </div>
+              <button 
+                onClick={() => setShowSelectedFootprint(!showSelectedFootprint)}
+                className={`flex-1 border text-center text-[10px] uppercase tracking-wider py-2 rounded-lg font-bold transition-all ${
+                  showSelectedFootprint 
+                    ? 'border-blue-500/50 bg-blue-950/30 text-blue-300 shadow-inner' 
+                    : 'border-white/10 text-white/40 hover:text-white'
+                }`}
+              >
+                Footprint
+              </button>
+              <button 
+                onClick={() => setFollowSelected(!followSelected)}
+                className={`flex-1 border text-center text-[10px] uppercase tracking-wider py-2 rounded-lg font-bold transition-all ${
+                  followSelected 
+                    ? 'border-emerald-500/50 bg-emerald-950/30 text-emerald-300 shadow-inner' 
+                    : 'border-white/10 text-white/40 hover:text-white'
+                }`}
+              >
+                {followSelected ? 'Following' : 'Follow'}
+              </button>
             </div>
           </div>
         )}
@@ -1257,39 +1397,97 @@ export default function SatelliteGlobe() {
 
           {/* Locked Telemetry Bottom Sheet */}
           <div 
-            className={`fixed bottom-0 left-0 right-0 z-25 bg-[#111622]/98 backdrop-blur-lg border-t border-blue-500/30 rounded-t-2xl p-5 transition-transform duration-500 md:hidden pointer-events-auto ${
+            className={`fixed bottom-0 left-0 right-0 z-25 bg-[#111622]/98 backdrop-blur-lg border-t border-blue-500/30 rounded-t-2xl p-5 transition-transform duration-500 md:hidden pointer-events-auto max-h-[75vh] overflow-y-auto ${
               selectedSat && selectedSat.lat !== undefined && !mobileShowLayers && !mobileShowSearch ? 'translate-y-0' : 'translate-y-full'
             }`}
           >
             {selectedSat && (
-              <div>
-                <div className="flex justify-between items-start mb-4">
+              <div className="flex flex-col gap-4">
+                <div className="flex justify-between items-start">
                   <div>
                     <span className="text-[9px] bg-blue-500/20 text-blue-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Locked Target</span>
-                    <h3 className="text-base font-bold truncate mt-1 tracking-tight" style={{ width: 'calc(100vw - 80px)' }}>{selectedSat.name}</h3>
+                    <h3 className="text-lg font-bold truncate mt-1 tracking-tight" style={{ width: 'calc(100vw - 80px)' }}>{selectedSat.name}</h3>
+                    <span className="text-[10px] text-slate-500 font-mono block">NORAD {satrec ? satrec.satnum : '00000'}</span>
                   </div>
                   <button onClick={() => setSelectedSat(null)} className="text-white/40">
                     <X className="h-5 w-5" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 font-mono text-xs border-t border-white/5 pt-3">
-                  <div className="flex justify-between border-b border-white/5 pb-2">
-                    <span className="text-white/40">LAT:</span>
-                    <span className="text-blue-300">{(selectedSat.lat ?? 0).toFixed(3)}°</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-[#181f30]/40 border border-white/5 p-3 rounded-lg flex flex-col">
+                    <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">ALTITUDE</span>
+                    <span className="text-sm font-mono text-white mt-1">
+                      {Math.round((selectedSat.alt ?? 0) * EARTH_RADIUS_KM).toFixed(1)} km
+                    </span>
                   </div>
-                  <div className="flex justify-between border-b border-white/5 pb-2">
-                    <span className="text-white/40">LNG:</span>
-                    <span className="text-blue-300">{(selectedSat.lng ?? 0).toFixed(3)}°</span>
+                  <div className="bg-[#181f30]/40 border border-white/5 p-3 rounded-lg flex flex-col">
+                    <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">SPEED</span>
+                    <span className="text-sm font-mono text-white mt-1">
+                      {(selectedSat.speed ?? 0).toFixed(2)} km/s
+                    </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/40">ALT:</span>
-                    <span className="text-blue-300">{Math.round((selectedSat.alt ?? 0) * EARTH_RADIUS_KM)} km</span>
+                  <div className="bg-[#181f30]/40 border border-white/5 p-3 rounded-lg flex flex-col">
+                    <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">LATITUDE</span>
+                    <span className="text-sm font-mono text-white mt-1">
+                      {Math.abs(selectedSat.lat ?? 0).toFixed(2)}° {(selectedSat.lat ?? 0) >= 0 ? 'N' : 'S'}
+                    </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/40">SPD:</span>
-                    <span className="text-emerald-400">{(selectedSat.speed ?? 0).toFixed(2)} km/s</span>
+                  <div className="bg-[#181f30]/40 border border-white/5 p-3 rounded-lg flex flex-col">
+                    <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">LONGITUDE</span>
+                    <span className="text-sm font-mono text-white mt-1">
+                      {Math.abs(selectedSat.lng ?? 0).toFixed(2)}° {(selectedSat.lng ?? 0) >= 0 ? 'E' : 'W'}
+                    </span>
                   </div>
+                  <div className="bg-[#181f30]/40 border border-white/5 p-3 rounded-lg flex flex-col">
+                    <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">PERIOD</span>
+                    <span className="text-sm font-mono text-white mt-1">
+                      {satrec ? ((2 * Math.PI) / satrec.no).toFixed(1) : '94.0'} min
+                    </span>
+                  </div>
+                  <div className="bg-[#181f30]/40 border border-white/5 p-3 rounded-lg flex flex-col">
+                    <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">INCLINATION</span>
+                    <span className="text-sm font-mono text-white mt-1">
+                      {satrec ? ((satrec.inclo * 180) / Math.PI).toFixed(2) : '53.16'}°
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-[9px] text-slate-500 font-mono">
+                  {tleDateString}
+                </div>
+
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setShowSelectedOrbit(!showSelectedOrbit)}
+                    className={`flex-1 border text-center text-[10px] uppercase tracking-wider py-2.5 rounded-lg font-bold transition-all ${
+                      showSelectedOrbit 
+                        ? 'border-blue-500/50 bg-blue-950/30 text-blue-300' 
+                        : 'border-white/10 text-white/40'
+                    }`}
+                  >
+                    Orbit
+                  </button>
+                  <button 
+                    onClick={() => setShowSelectedFootprint(!showSelectedFootprint)}
+                    className={`flex-1 border text-center text-[10px] uppercase tracking-wider py-2.5 rounded-lg font-bold transition-all ${
+                      showSelectedFootprint 
+                        ? 'border-blue-500/50 bg-blue-950/30 text-blue-300' 
+                        : 'border-white/10 text-white/40'
+                    }`}
+                  >
+                    Footprint
+                  </button>
+                  <button 
+                    onClick={() => setFollowSelected(!followSelected)}
+                    className={`flex-1 border text-center text-[10px] uppercase tracking-wider py-2.5 rounded-lg font-bold transition-all ${
+                      followSelected 
+                        ? 'border-emerald-500/50 bg-emerald-950/30 text-emerald-300' 
+                        : 'border-white/10 text-white/40'
+                    }`}
+                  >
+                    {followSelected ? 'Following' : 'Follow'}
+                  </button>
                 </div>
               </div>
             )}
@@ -1324,17 +1522,20 @@ export default function SatelliteGlobe() {
           pathColor={(path: any) => {
             if (path.isNadir) return 'rgba(34, 211, 238, 0.95)'; // Glowing cyan downlink
             if (path.isLaser) return 'rgba(168, 85, 247, 0.65)'; // Neon purple laser link
-            return 'rgba(59, 130, 246, 0.5)'; // Slate blue orbit path
+            if (path.isPastOrbit) return 'rgba(239, 68, 68, 0.85)'; // Past orbit path (Red/Coral)
+            return 'rgba(59, 130, 246, 0.65)'; // Future orbit path (Blue/Slate)
           }}
           pathStroke={(path: any) => {
             if (path.isNadir) return 2.2;
             if (path.isLaser) return 0.8;
-            return 1.2;
+            if (path.isPastOrbit) return 1.5;
+            return 1.5;
           }}
           pathResolution={30}
           pathDashLength={(path: any) => {
             if (path.isNadir) return 0.25;
             if (path.isLaser) return 0.05;
+            if (path.isPastOrbit) return 0; // Solid past path!
             return 0.04;
           }}
           pathDashGap={(path: any) => {
@@ -1345,6 +1546,7 @@ export default function SatelliteGlobe() {
           pathDashAnimateTime={(path: any) => {
             if (path.isNadir) return 1200; // Fast descending downlink pulse
             if (path.isLaser) return 4000;
+            if (path.isPastOrbit) return 0; // Static
             return 2500;
           }}
 
@@ -1354,6 +1556,15 @@ export default function SatelliteGlobe() {
           ringMaxRadius="maxR"
           ringPropagationSpeed="propagationSpeed"
           ringRepeatPeriod="repeatPeriod"
+
+          // Text labels next to selected uydular (glowing cyan text)
+          labelsData={labels}
+          labelLat="lat"
+          labelLng="lng"
+          labelText="text"
+          labelColor={() => '#38bdf8'}
+          labelSize={0.4}
+          labelResolution={6}
         />
       )}
     </div>
