@@ -216,6 +216,8 @@ export default function SatelliteGlobe() {
   const [tick, setTick] = useState(0);
   const [showLaserLinks, setShowLaserLinks] = useState(false);
   const sunVectorRef = useRef<THREE.Vector3>(new THREE.Vector3(1, 0, 0));
+  const [mobileShowLayers, setMobileShowLayers] = useState(false);
+  const [mobileShowSearch, setMobileShowSearch] = useState(false);
 
   // States for Globe.gl layers
   const [paths, setPaths] = useState<any[]>([]);
@@ -846,7 +848,7 @@ export default function SatelliteGlobe() {
 
       {/* Left panel - controls & search (With smooth slide-in transition) */}
       <div 
-        className={`absolute top-6 left-6 z-10 w-80 pointer-events-none flex flex-col gap-4 transition-all duration-1000 ease-in-out ${
+        className={`absolute top-6 left-6 z-10 w-80 pointer-events-none hidden md:flex flex-col gap-4 transition-all duration-1000 ease-in-out ${
           showLanding || loading ? '-translate-x-[360px] opacity-0' : 'translate-x-0 opacity-100'
         }`}
       >
@@ -935,7 +937,7 @@ export default function SatelliteGlobe() {
 
       {/* Right panel - Telemetry Readout (With smooth slide-in transition) */}
       <div 
-        className={`absolute top-6 right-6 z-10 w-80 pointer-events-none flex flex-col gap-4 transition-all duration-1000 ease-in-out ${
+        className={`absolute top-6 right-6 z-10 w-80 pointer-events-none hidden md:flex flex-col gap-4 transition-all duration-1000 ease-in-out ${
           showLanding || loading ? 'translate-x-[360px] opacity-0' : 'translate-x-0 opacity-100'
         }`}
       >
@@ -1044,7 +1046,7 @@ export default function SatelliteGlobe() {
 
       {/* Footer - Quick Tips (With smooth slide-in transition) */}
       <div 
-        className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-10 pointer-events-none bg-black/40 backdrop-blur-md border border-white/5 py-2 px-6 rounded-full text-white/50 text-[10px] uppercase tracking-wider shadow-xl flex items-center gap-2 transition-all duration-1000 ease-in-out ${
+        className={`absolute bottom-6 left-1/2 -translate-x-1/2 z-10 pointer-events-none bg-black/40 backdrop-blur-md border border-white/5 py-2 px-6 rounded-full text-white/50 text-[10px] uppercase tracking-wider shadow-xl hidden md:flex items-center gap-2 transition-all duration-1000 ease-in-out ${
           showLanding || loading ? 'translate-y-20 opacity-0' : 'translate-y-0 opacity-100'
         }`}
       >
@@ -1054,6 +1056,169 @@ export default function SatelliteGlobe() {
         <span className="text-white/20">|</span>
         <span>🟢 click satellite to lock telemetry</span>
       </div>
+
+      {/* MOBILE HUD OVERLAYS (visible only on < md screens when initialized) */}
+      {!showLanding && !loading && (
+        <>
+          {/* Top Header */}
+          <div className="absolute top-0 left-0 right-0 z-20 bg-[#111622]/90 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center justify-between md:hidden pointer-events-auto">
+            <div className="flex items-center gap-2">
+              <img src={logoImg} alt="Orbitim Logo" className="h-7 w-auto drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]" />
+              <span className="text-white font-extrabold tracking-tight text-xs bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">ORBITIM 3D</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  setMobileShowSearch(!mobileShowSearch);
+                  setMobileShowLayers(false);
+                }}
+                className={`p-1.5 rounded-lg border transition-all ${
+                  mobileShowSearch ? 'bg-blue-600/20 border-blue-500 text-blue-300' : 'bg-white/5 border-white/10 text-white/70'
+                }`}
+              >
+                <Search className="h-3.5 w-3.5" />
+              </button>
+              <button 
+                onClick={() => {
+                  setMobileShowLayers(!mobileShowLayers);
+                  setMobileShowSearch(false);
+                }}
+                className={`p-1.5 rounded-lg border transition-all ${
+                  mobileShowLayers ? 'bg-blue-600/20 border-blue-500 text-blue-300' : 'bg-white/5 border-white/10 text-white/70'
+                }`}
+              >
+                <Layers className="h-3.5 w-3.5" />
+              </button>
+              <div className="text-[9px] font-mono text-blue-300 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">
+                {time}
+              </div>
+            </div>
+          </div>
+
+          {/* Search Dropdown Panel */}
+          <div 
+            className={`absolute left-0 right-0 z-15 bg-[#111622]/95 backdrop-blur-md border-b border-blue-500/30 px-4 py-3 transition-all duration-300 md:hidden pointer-events-auto ${
+              mobileShowSearch ? 'top-[49px] opacity-100' : '-top-20 opacity-0 pointer-events-none'
+            }`}
+          >
+            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
+              <Search className="h-3.5 w-3.5 text-white/40" />
+              <input
+                type="text"
+                placeholder="Search satellite or NORAD id..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent border-0 outline-none text-xs w-full text-slate-300 font-mono"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="text-white/40">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Observation Layers Bottom Sheet */}
+          <div 
+            className={`fixed bottom-0 left-0 right-0 z-20 bg-[#111622]/95 backdrop-blur-lg border-t border-white/10 rounded-t-2xl p-5 transition-transform duration-500 md:hidden pointer-events-auto max-h-[60vh] overflow-y-auto ${
+              mobileShowLayers ? 'translate-y-0' : 'translate-y-full'
+            }`}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Observation Layers</span>
+              <button onClick={() => setMobileShowLayers(false)} className="text-white/40 hover:text-white">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              {GROUPS.map((g) => {
+                const isSelected = activeGroup === g.id;
+                return (
+                  <button
+                    key={g.id}
+                    onClick={() => {
+                      setActiveGroup(g.id);
+                      setMobileShowLayers(false);
+                    }}
+                    className={`text-left text-xs py-2.5 px-3 rounded-xl transition-all flex items-center justify-between ${
+                      isSelected
+                        ? 'bg-blue-600/20 text-white border border-blue-500/30 font-medium'
+                        : 'bg-white/5 text-white/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: g.color }} />
+                      <span className="truncate">{g.name}</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-white/40">
+                      {isSelected ? filteredSatellites.length.toLocaleString() : g.count.toLocaleString()}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeGroup === 'starlink' && (
+              <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+                <span className="text-white/60">Laser Links (ISL)</span>
+                <button 
+                  onClick={() => setShowLaserLinks(!showLaserLinks)}
+                  className={`w-9 h-5 rounded-full transition-all relative ${
+                    showLaserLinks ? 'bg-blue-600' : 'bg-slate-800'
+                  }`}
+                >
+                  <span 
+                    className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.75 transition-all ${
+                      showLaserLinks ? 'left-[18px]' : 'left-[2px]'
+                    }`} 
+                  />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Locked Telemetry Bottom Sheet */}
+          <div 
+            className={`fixed bottom-0 left-0 right-0 z-25 bg-[#111622]/98 backdrop-blur-lg border-t border-blue-500/30 rounded-t-2xl p-5 transition-transform duration-500 md:hidden pointer-events-auto ${
+              selectedSat && selectedSat.lat !== undefined && !mobileShowLayers && !mobileShowSearch ? 'translate-y-0' : 'translate-y-full'
+            }`}
+          >
+            {selectedSat && (
+              <div>
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <span className="text-[9px] bg-blue-500/20 text-blue-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Locked Target</span>
+                    <h3 className="text-base font-bold truncate mt-1 tracking-tight" style={{ width: 'calc(100vw - 80px)' }}>{selectedSat.name}</h3>
+                  </div>
+                  <button onClick={() => setSelectedSat(null)} className="text-white/40">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 font-mono text-xs border-t border-white/5 pt-3">
+                  <div className="flex justify-between border-b border-white/5 pb-2">
+                    <span className="text-white/40">LAT:</span>
+                    <span className="text-blue-300">{(selectedSat.lat ?? 0).toFixed(3)}°</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 pb-2">
+                    <span className="text-white/40">LNG:</span>
+                    <span className="text-blue-300">{(selectedSat.lng ?? 0).toFixed(3)}°</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/40">ALT:</span>
+                    <span className="text-blue-300">{Math.round((selectedSat.alt ?? 0) * EARTH_RADIUS_KM)} km</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/40">SPD:</span>
+                    <span className="text-emerald-400">{(selectedSat.speed ?? 0).toFixed(2)} km/s</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {texturesLoaded && (
         <Globe
