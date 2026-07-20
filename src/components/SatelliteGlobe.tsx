@@ -1843,7 +1843,7 @@ export default function SatelliteGlobe() {
       {texturesLoaded && (
         <Globe
           ref={globeRef}
-          globeMaterial={globeMaterial || undefined}
+          globeMaterial={observationTarget === 'earth' ? (globeMaterial || undefined) : undefined}
           backgroundColor="#0e131f"
           
           showAtmosphere={observationTarget === 'earth'}
