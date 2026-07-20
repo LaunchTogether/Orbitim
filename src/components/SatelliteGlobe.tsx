@@ -5,15 +5,21 @@ import * as satellite from 'satellite.js';
 import { fetchSatellitesByGroup, type SatelliteData } from '../services/tle';
 import { Search, Info, Radio, Compass, X, Cpu, Layers, Play } from 'lucide-react';
 import starlinkImg from '../assets/starlink.png';
+import logoImg from '../assets/logo.png';
 
 const EARTH_RADIUS_KM = 6371;
 
 const GROUPS = [
-  { id: 'starlink', name: 'Starlink Constellation' },
-  { id: 'stations', name: 'Space Stations (ISS/Tiangong)' },
-  { id: 'gps', name: 'GPS Constellation' },
-  { id: 'weather', name: 'Weather Satellites' },
-  { id: 'geo', name: 'Geostationary' }
+  { id: 'stations', name: 'Space Stations', count: 14, color: '#fbbf24' },
+  { id: 'gps', name: 'GPS', count: 40, color: '#22c55e' },
+  { id: 'glonass', name: 'GLONASS', count: 28, color: '#84cc16' },
+  { id: 'galileo', name: 'Galileo', count: 49, color: '#06b6d4' },
+  { id: 'weather', name: 'Weather', count: 38, color: '#ec4899' },
+  { id: 'oneweb', name: 'OneWeb', count: 651, color: '#a855f7' },
+  { id: 'starlink', name: 'Starlink', count: 6185, color: '#3b82f6' },
+  { id: 'brightest', name: 'Brightest', count: 157, color: '#ffffff' },
+  { id: 'debris', name: 'Debris', count: 593, color: '#f43f5e' },
+  { id: 'geo', name: 'Other Active', count: 4425, color: '#64748b' }
 ];
 
 // Helper function to merge multiple buffer geometries into a single mesh for 60 FPS rendering
@@ -672,14 +678,15 @@ export default function SatelliteGlobe() {
         }`}
       >
         <div className="space-y-6">
-          <div>
-            <div className="flex items-center gap-2 text-blue-400 font-bold tracking-widest text-xs uppercase mb-1">
-              <Radio className="h-4 w-4 animate-pulse" /> Telemetry Control Grid
+          <div className="flex flex-col items-center text-center pb-2 border-b border-white/5">
+            <img src={logoImg} alt="Orbitim Logo" className="h-28 w-auto mb-4 drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] animate-pulse" />
+            <div className="flex items-center gap-2 text-blue-400 font-bold tracking-widest text-[10px] uppercase mb-1">
+              <Radio className="h-3.5 w-3.5 animate-pulse" /> Telemetry Control Grid
             </div>
-            <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-white leading-none">
+            <h1 className="text-4xl font-black tracking-tight text-white leading-none uppercase">
               ORBITIM <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">3D</span>
             </h1>
-            <p className="text-white/70 text-xs sm:text-sm mt-3 leading-relaxed">
+            <p className="text-white/50 text-xs mt-2 leading-relaxed max-w-sm">
               Welcome to the central observation hub for Earth's artificial satellite shell. Orbitim 3D parses live orbital data feeds to propagate and render over 12,000 active objects in real-time.
             </p>
           </div>
@@ -773,55 +780,67 @@ export default function SatelliteGlobe() {
           showLanding || loading ? '-translate-x-[360px] opacity-0' : 'translate-x-0 opacity-100'
         }`}
       >
-        <div className="bg-black/50 backdrop-blur-lg border border-white/10 p-5 rounded-2xl text-white shadow-2xl pointer-events-auto">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">ORBITIM 3D</h1>
-              <p className="text-blue-400 text-[10px] font-bold tracking-widest uppercase">Satellite Telemetry Array</p>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-white/40 font-mono">TIME (UTC)</div>
-              <div className="text-lg font-mono text-blue-300 tracking-wider">{time}</div>
-            </div>
+        {/* Title Header with Cyber Logo */}
+        <div className="bg-[#111622]/85 backdrop-blur-lg border border-white/10 p-4 rounded-xl text-white shadow-2xl pointer-events-auto flex items-center gap-3">
+          <img src={logoImg} alt="Orbitim Logo" className="h-10 w-auto drop-shadow-[0_0_8px_rgba(59,130,246,0.4)]" />
+          <div className="flex-1">
+            <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">ORBITIM 3D</h1>
+            <p className="text-blue-400 text-[8px] font-bold tracking-widest uppercase">Satellite Telemetry Array</p>
           </div>
-
-          {/* Group Selector */}
-          <div className="mt-5 space-y-1">
-            <label className="text-[10px] text-white/40 font-bold uppercase tracking-wider block mb-1">Observation Array</label>
-            <div className="grid grid-cols-1 gap-1">
-              {GROUPS.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => setActiveGroup(g.id)}
-                  className={`text-left text-xs py-2 px-3 rounded-xl transition-all flex items-center justify-between ${
-                    activeGroup === g.id
-                      ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30 font-medium'
-                      : 'hover:bg-white/5 text-white/60 border border-transparent'
-                  }`}
-                >
-                  <span className="truncate">{g.name}</span>
-                  <Radio className={`h-3 w-3 ${activeGroup === g.id ? 'animate-pulse text-blue-400' : 'text-transparent'}`} />
-                </button>
-              ))}
-            </div>
+          <div className="text-right">
+            <div className="text-[8px] text-white/30 font-mono">TIME (UTC)</div>
+            <div className="text-sm font-mono text-blue-300 tracking-wider">{time}</div>
           </div>
         </div>
 
-        {/* Search Panel */}
-        <div className="bg-black/50 backdrop-blur-lg border border-white/10 p-4 rounded-2xl text-white shadow-2xl pointer-events-auto flex items-center gap-3">
+        {/* Search Panel (Matching the requested style) */}
+        <div className="bg-[#111622]/90 backdrop-blur-lg border border-blue-500/50 px-4 py-2.5 rounded-lg text-white shadow-2xl pointer-events-auto flex items-center gap-3 w-full transition-colors focus-within:border-blue-400">
           <Search className="h-4 w-4 text-white/40" />
           <input
             type="text"
-            placeholder="Search satellite registry..."
+            placeholder="Search satellite or NORAD id..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-transparent border-0 outline-none text-xs w-full placeholder-white/30 text-white font-mono"
+            className="bg-transparent border-0 outline-none text-xs w-full placeholder-slate-500 text-slate-300 font-mono"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="text-white/40 hover:text-white">
+            <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-white transition-colors">
               <X className="h-4 w-4" />
             </button>
           )}
+        </div>
+
+        {/* Layers Panel (Matching the requested style) */}
+        <div className="bg-[#111622]/85 backdrop-blur-lg border border-white/10 p-5 rounded-2xl text-white shadow-2xl pointer-events-auto flex flex-col gap-4">
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest block">Layers</span>
+          <div className="flex flex-col gap-2">
+            {GROUPS.map((g) => {
+              const isSelected = activeGroup === g.id;
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => setActiveGroup(g.id)}
+                  className={`text-left text-xs py-2 px-3 rounded-xl transition-all flex items-center justify-between group ${
+                    isSelected
+                      ? 'bg-blue-600/20 text-white border border-blue-500/30 font-medium'
+                      : 'hover:bg-white/5 text-white/60 border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2 rounded-full h-2 shrink-0" style={{ backgroundColor: g.color }} />
+                    <span className="truncate">{g.name}</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-white/40 group-hover:text-white/80 transition-colors">
+                    {isSelected ? filteredSatellites.length.toLocaleString() : g.count.toLocaleString()}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          
+          <div className="text-[8px] text-gray-500 font-mono border-t border-white/5 pt-3 text-center leading-relaxed">
+            TLE CelesTrak · SGP4 satellite.js · Imagery NASA Blue Marble
+          </div>
         </div>
       </div>
 

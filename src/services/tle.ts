@@ -34,10 +34,13 @@ GPS BIIRM-4
 2 32711  55.4397 310.1063 0055092 119.2481 240.8322  2.00562605369346`;
 
 export async function fetchSatellitesByGroup(group: string = 'starlink'): Promise<TleResult> {
-  // Map group ID to Satvisor file names
+  // Map group ID to Satvisor TLE file names
   let fileName = `${group}.tle`;
   if (group === 'gps') fileName = 'gps-ops.tle';
+  if (group === 'glonass') fileName = 'glo-ops.tle';
   if (group === 'geo') fileName = 'geo.tle';
+  if (group === 'brightest') fileName = 'visual.tle';
+  if (group === 'debris') fileName = 'iridium-33-debris.tle';
 
   const githubUrl = `https://raw.githubusercontent.com/satvisorcom/satvisor-data/master/celestrak/tle/${fileName}`;
   const celestrakUrl = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`;
