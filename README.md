@@ -1,27 +1,3 @@
-<div align="center">
-
-<img src="public/orbitim_telemetry_banner.png" alt="Orbitim — the solar system, right now" width="100%" />
-
-<br /><br />
-
-<img src="https://img.shields.io/badge/Orbitim-Live-38BDF8?style=for-the-badge&logoColor=white" alt="status" />
-<img src="https://img.shields.io/badge/No_backend-No_API_key-0EA5E9?style=for-the-badge" alt="no backend" />
-<img src="https://img.shields.io/badge/18_worlds-14_constellations-A78BFA?style=for-the-badge" alt="scope" />
-
-<br />
-
-<img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="react" />
-<img src="https://img.shields.io/badge/three.js-r185-000000?style=for-the-badge&logo=threedotjs&logoColor=white" alt="three" />
-<img src="https://img.shields.io/badge/React_Three_Fiber-Scene-FF6188?style=for-the-badge" alt="r3f" />
-<img src="https://img.shields.io/badge/TypeScript-Strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="typescript" />
-<img src="https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="vite" />
-<img src="https://img.shields.io/badge/Tailwind-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="tailwind" />
-<img src="https://img.shields.io/badge/VSOP87-astronomy--engine-FBBF24?style=for-the-badge" alt="ephemeris" />
-<img src="https://img.shields.io/badge/SGP4-satellite.js-34D399?style=for-the-badge" alt="sgp4" />
-<img src="https://img.shields.io/badge/GLSL-Shaders-FF4785?style=for-the-badge&logo=opengl&logoColor=white" alt="glsl" />
-
-<br /><br />
-
 ```text
  ██████╗ ██████╗ ██████╗ ██╗████████╗██╗███╗   ███╗
 ██╔═══██╗██╔══██╗██╔══██╗██║╚══██╔══╝██║████╗ ████║
