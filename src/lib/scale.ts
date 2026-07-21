@@ -13,10 +13,16 @@
 const ORBIT_BASE = 60;
 /** Strength of the log compression. 0 = linear, 1 = fully logarithmic. */
 const ORBIT_COMPRESSION = 0.62;
-/** Scene units per kilometre of body radius. */
-const RADIUS_UNIT = 1 / 6378.1;
-/** Constant exaggeration applied to every body radius. */
-const RADIUS_EXAGGERATION = 3;
+/** Scene radius of an Earth-sized body. */
+const EARTH_SCENE_RADIUS = 2.2;
+/** Earth's equatorial radius, km — the reference for body scaling. */
+const EARTH_RADIUS_KM = 6378.1;
+/**
+ * Radii are compressed too, or the Sun (109 Earth radii) would swallow
+ * Mercury's compressed orbit. The exponent keeps the ordering and a legible
+ * sense of relative size: Jupiter still reads as three times Earth.
+ */
+const RADIUS_EXPONENT = 0.45;
 
 /** Orbital distance in AU to a radial distance in scene units. */
 export function auToScene(au: number): number {
@@ -39,12 +45,12 @@ export function sceneToAu(units: number): number {
 
 /** Body radius in kilometres to a radius in scene units. */
 export function kmToSceneRadius(km: number): number {
-  return km * RADIUS_UNIT * RADIUS_EXAGGERATION;
+  return EARTH_SCENE_RADIUS * Math.pow(km / EARTH_RADIUS_KM, RADIUS_EXPONENT);
 }
 
 /** Inverse of {@link kmToSceneRadius}. */
 export function sceneRadiusToKm(units: number): number {
-  return units / (RADIUS_UNIT * RADIUS_EXAGGERATION);
+  return EARTH_RADIUS_KM * Math.pow(units / EARTH_SCENE_RADIUS, 1 / RADIUS_EXPONENT);
 }
 
 /**

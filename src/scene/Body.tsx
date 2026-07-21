@@ -1,0 +1,88 @@
+import { useRef } from 'react';
+import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
+import { getBodyRecord, type BodyId } from '../lib/ephemeris/bodies';
+import { getAxialTilt, getSpinAngle } from '../lib/ephemeris/rotation';
+import { useBodyTexture } from '../lib/textures/useBodyTexture';
+import { lodFor, useFlight } from '../flight/useFlight';
+import { useSimTime } from './useSimTime';
+import { sceneRadiusOf, type PositionRegistry } from './bodyPositions';
+import { Rings } from './Rings';
+
+interface BodyProps {
+  id: BodyId;
+  registry: PositionRegistry;
+  onSelect: (id: BodyId) => void;
+}
+
+/** Segment count scales with level of detail so far bodies stay cheap. */
+const SEGMENTS = { far: 48, near: 192 } as const;
+
+export function Body({ id, registry, onSelect }: BodyProps) {
+  const record = getBodyRecord(id);
+  const group = useRef<THREE.Group>(null);
+  const surface = useRef<THREE.Mesh>(null);
+  const clouds = useRef<THREE.Mesh>(null);
+
+  const phase = useFlight((s) => s.phase);
+  const target = useFlight((s) => s.target);
+  const lod = lodFor(id, phase, target);
+  const textures = useBodyTexture(id, lod);
+
+  const radius = sceneRadiusOf(id);
+  const isStar = record.kind === 'star';
+
+  useFrame(() => {
+    const position = registry.get(id);
+    if (position && group.current) group.current.position.copy(position);
+
+    const date = useSimTime.getState().date;
+    const spin = getSpinAngle(id, date);
+    if (surface.current) surface.current.rotation.y = spin;
+    // Clouds drift slightly faster than the surface, as they do in reality.
+    if (clouds.current) clouds.current.rotation.y = spin * 1.08;
+  });
+
+  return (
+    <group ref={group} rotation={[getAxialTilt(id), 0, 0]}>
+      <mesh
+        ref={surface}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect(id);
+        }}
+      >
+        <sphereGeometry args={[radius, SEGMENTS[lod], SEGMENTS[lod] / 2]} />
+        {isStar ? (
+          <meshBasicMaterial map={textures.map ?? undefined} color={textures.map ? '#ffffff' : record.color} toneMapped={false} />
+        ) : (
+          <meshStandardMaterial
+            map={textures.map ?? undefined}
+            color={textures.map ? '#ffffff' : record.color}
+            emissiveMap={textures.emissiveMap ?? undefined}
+            emissive={textures.emissiveMap ? new THREE.Color('#ffcf87') : new THREE.Color('#000000')}
+            emissiveIntensity={textures.emissiveMap ? 0.85 : 0}
+            roughness={0.92}
+            metalness={0}
+          />
+        )}
+      </mesh>
+
+      {textures.cloudMap && (
+        <mesh ref={clouds}>
+          <sphereGeometry args={[radius * 1.006, SEGMENTS[lod], SEGMENTS[lod] / 2]} />
+          <meshStandardMaterial map={textures.cloudMap} transparent opacity={0.42} depthWrite={false} roughness={1} />
+        </mesh>
+      )}
+
+      {record.rings && <Rings record={record} radius={radius} map={textures.ringMap} />}
+
+      {isStar && (
+        <mesh>
+          <sphereGeometry args={[radius * 1.35, 48, 24]} />
+          <meshBasicMaterial color="#ff9d3c" transparent opacity={0.12} side={THREE.BackSide} depthWrite={false} />
+        </mesh>
+      )}
+    </group>
+  );
+}
