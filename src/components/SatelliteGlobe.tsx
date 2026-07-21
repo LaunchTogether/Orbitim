@@ -386,8 +386,9 @@ export default function SatelliteGlobe() {
     Promise.all([
       textureLoader.loadAsync('https://cdn.jsdelivr.net/gh/Shriisoot/Planets-texture/8k_earth_daymap.jpg'),
       textureLoader.loadAsync('https://cdn.jsdelivr.net/gh/Shriisoot/Planets-texture/8k_earth_nightmap.jpg'),
-      textureLoader.loadAsync('https://vasturiano.github.io/react-globe.gl/example/moon-landing-sites/lunar_surface.jpg')
-    ]).then(([dayTexture, nightTexture, moonTexture]) => {
+      textureLoader.loadAsync('https://vasturiano.github.io/react-globe.gl/example/moon-landing-sites/lunar_surface.jpg'),
+      textureLoader.loadAsync('https://cdn.jsdelivr.net/gh/Shriisoot/Planets-texture/2k_sun.jpg') // Load photorealistic Sun texture
+    ]).then(([dayTexture, nightTexture, moonTexture, sunTexture]) => {
       console.log("Planetary textures successfully loaded.");
       const mat = new THREE.MeshStandardMaterial({
         map: dayTexture,
@@ -409,44 +410,8 @@ export default function SatelliteGlobe() {
       });
       setMoonMaterial(moonMat);
 
-      // Procedurally generate highly detailed 3D Sun material
-      const sunCanvas = document.createElement('canvas');
-      sunCanvas.width = 256;
-      sunCanvas.height = 128;
-      const sCtx = sunCanvas.getContext('2d')!;
-      sCtx.fillStyle = '#e65c00'; // Sun base orange
-      sCtx.fillRect(0, 0, 256, 128);
-      
-      // Generate solar plasma turbulence
-      for (let i = 0; i < 80; i++) {
-        const x = Math.random() * 256;
-        const y = Math.random() * 128;
-        const r = 8 + Math.random() * 24;
-        const grad = sCtx.createRadialGradient(x, y, 0, x, y, r);
-        grad.addColorStop(0, 'rgba(255, 230, 0, 0.95)'); // Yellow hot spot
-        grad.addColorStop(0.3, 'rgba(255, 110, 0, 0.7)');  // Orange plasma
-        grad.addColorStop(0.6, 'rgba(230, 30, 0, 0.4)');   // Darker red filaments
-        grad.addColorStop(1, 'rgba(230, 92, 0, 0)');
-        sCtx.fillStyle = grad;
-        sCtx.beginPath();
-        sCtx.arc(x, y, r, 0, Math.PI * 2);
-        sCtx.fill();
-      }
-      
-      // Draw prominence arches
-      sCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      sCtx.lineWidth = 1.5;
-      for (let i = 0; i < 15; i++) {
-        sCtx.beginPath();
-        const x = Math.random() * 256;
-        const y = Math.random() * 128;
-        sCtx.arc(x, y, 10 + Math.random() * 15, 0, Math.PI * (0.5 + Math.random() * 1.5));
-        sCtx.stroke();
-      }
-      
-      const sunTex = new THREE.CanvasTexture(sunCanvas);
       const sunMat = new THREE.MeshBasicMaterial({ 
-        map: sunTex,
+        map: sunTexture,
         toneMapped: false
       });
       setSunMaterial(sunMat);
@@ -488,60 +453,32 @@ export default function SatelliteGlobe() {
     moonLight.name = 'custom-moon';
     scene.add(moonLight);
 
-    // Sun visual sphere (Detailed 3D Globe with procedural plasma texture and corona glow)
-    const sunCanvas = document.createElement('canvas');
-    sunCanvas.width = 256;
-    sunCanvas.height = 128;
-    const sCtx = sunCanvas.getContext('2d')!;
-    sCtx.fillStyle = '#e65c00'; // Sun base orange
-    sCtx.fillRect(0, 0, 256, 128);
-    
-    // Generate solar plasma turbulence
-    for (let i = 0; i < 80; i++) {
-      const x = Math.random() * 256;
-      const y = Math.random() * 128;
-      const r = 8 + Math.random() * 24;
-      const grad = sCtx.createRadialGradient(x, y, 0, x, y, r);
-      grad.addColorStop(0, 'rgba(255, 230, 0, 0.95)'); // Yellow hot spot
-      grad.addColorStop(0.3, 'rgba(255, 110, 0, 0.7)');  // Orange plasma
-      grad.addColorStop(0.6, 'rgba(230, 30, 0, 0.4)');   // Darker red filaments
-      grad.addColorStop(1, 'rgba(230, 92, 0, 0)');
-      sCtx.fillStyle = grad;
-      sCtx.beginPath();
-      sCtx.arc(x, y, r, 0, Math.PI * 2);
-      sCtx.fill();
-    }
-    
-    // Draw prominence arches
-    sCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-    sCtx.lineWidth = 1.5;
-    for (let i = 0; i < 15; i++) {
-      sCtx.beginPath();
-      const x = Math.random() * 256;
-      const y = Math.random() * 128;
-      sCtx.arc(x, y, 10 + Math.random() * 15, 0, Math.PI * (0.5 + Math.random() * 1.5));
-      sCtx.stroke();
-    }
-    
-    const sunTex = new THREE.CanvasTexture(sunCanvas);
+    // Sun visual sphere (Detailed 3D Globe with photorealistic Sun texture and corona glow)
     const sunMeshGeo = new THREE.SphereGeometry(22, 32, 32);
     const sunMeshMat = new THREE.MeshBasicMaterial({ 
-      map: sunTex,
       toneMapped: false
     });
     const sunMesh = new THREE.Mesh(sunMeshGeo, sunMeshMat);
     sunMesh.name = 'sun-visual';
+
+    // Load photorealistic Sun texture directly for the orbiting Sun mesh
+    const texLoader = new THREE.TextureLoader();
+    texLoader.load('https://cdn.jsdelivr.net/gh/Shriisoot/Planets-texture/2k_sun.jpg', (tex) => {
+      sunMeshMat.map = tex;
+      sunMeshMat.needsUpdate = true;
+    });
     
-    // Create a radial gradient for the solar corona glow sprite
+    // Create a smooth, realistic radial gradient for the solar corona glow sprite (no solid white borders!)
     const coronaCanvas = document.createElement('canvas');
     coronaCanvas.width = 64;
     coronaCanvas.height = 64;
     const cCtx = coronaCanvas.getContext('2d')!;
-    const cGrad = cCtx.createRadialGradient(32, 32, 8, 32, 32, 32);
-    cGrad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');  // Intense white core
-    cGrad.addColorStop(0.2, 'rgba(255, 195, 0, 0.85)'); // Golden inner corona
-    cGrad.addColorStop(0.6, 'rgba(255, 70, 0, 0.3)');   // Orange outer corona
-    cGrad.addColorStop(1, 'rgba(255, 70, 0, 0)');
+    const cGrad = cCtx.createRadialGradient(32, 32, 10, 32, 32, 32); // Start fading smoothly around the sphere radius
+    cGrad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');   // Intense white center
+    cGrad.addColorStop(0.25, 'rgba(255, 210, 80, 0.85)'); // Hot yellow inner glow
+    cGrad.addColorStop(0.5, 'rgba(255, 100, 10, 0.4)');   // Warm orange corona
+    cGrad.addColorStop(0.8, 'rgba(255, 50, 0, 0.15)');    // Reddish outer corona edge
+    cGrad.addColorStop(1, 'rgba(255, 50, 0, 0)');        // Transparent
     cCtx.fillStyle = cGrad;
     cCtx.fillRect(0, 0, 64, 64);
     
@@ -665,11 +602,12 @@ export default function SatelliteGlobe() {
     centralCoronaCanvas.width = 128;
     centralCoronaCanvas.height = 128;
     const ccCtx = centralCoronaCanvas.getContext('2d')!;
-    const ccGrad = ccCtx.createRadialGradient(64, 64, 45, 64, 64, 64);
-    ccGrad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');  // Bright center
-    ccGrad.addColorStop(0.15, 'rgba(255, 210, 0, 0.9)'); // Golden corona
-    ccGrad.addColorStop(0.4, 'rgba(255, 80, 0, 0.45)');  // Flare red
-    ccGrad.addColorStop(1, 'rgba(255, 80, 0, 0)');
+    const ccGrad = ccCtx.createRadialGradient(64, 64, 30, 64, 64, 64); // Start fading smoothly inside the globe radius
+    ccGrad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');   // Core white
+    ccGrad.addColorStop(0.1, 'rgba(255, 235, 120, 0.9)'); // Hot solar plasma
+    ccGrad.addColorStop(0.3, 'rgba(255, 160, 10, 0.7)');  // Golden corona atmosphere
+    ccGrad.addColorStop(0.65, 'rgba(255, 60, 0, 0.25)');  // Soft reddish outer glow
+    ccGrad.addColorStop(1, 'rgba(255, 60, 0, 0)');        // Fade out
     ccCtx.fillStyle = ccGrad;
     ccCtx.fillRect(0, 0, 128, 128);
     
