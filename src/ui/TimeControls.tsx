@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useSimTime } from '../scene/useSimTime';
 
+/**
+ * Simulated seconds per real second. The low end is where rotation reads
+ * correctly; the high end is where orbital motion does.
+ */
 const SPEEDS = [
-  { label: '1×', value: 1 },
+  { label: 'Real', value: 1 },
+  { label: '1 min/s', value: 60 },
+  { label: '5 min/s', value: 300 },
   { label: '1 h/s', value: 3600 },
   { label: '1 d/s', value: 86400 },
   { label: '1 mo/s', value: 2592000 }

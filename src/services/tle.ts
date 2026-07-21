@@ -69,7 +69,6 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
   if (cachedData && cachedTime) {
     const age = now - parseInt(cachedTime, 10);
     if (age < TWO_HOURS) {
-      console.log(`Using fresh cache for group ${group} (${Math.round(age / 60000)}m old)`);
       return {
         satellites: parseTLE(cachedData, group),
         source: 'cache'
@@ -79,7 +78,6 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
 
   // 2. Fetch from Satvisor CDN (GitHub Mirror) to avoid rate limits
   try {
-    console.log(`Fetching group ${group} from Satvisor CDN...`);
     const response = await fetch(githubUrl);
     if (!response.ok) {
       throw new Error(`Satvisor CDN returned HTTP ${response.status}`);
@@ -101,7 +99,6 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
 
   // 3. Fallback: Fetch directly from CelesTrak (might trigger 403 if refreshed frequently)
   try {
-    console.log(`Fetching group ${group} from live CelesTrak...`);
     const response = await fetch(celestrakUrl);
     
     if (response.status === 403) {
@@ -141,7 +138,6 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
           // Filter to keep only Starlink satellites
           const starlinks = parsed.filter(s => s.name.toUpperCase().includes('STARLINK'));
           if (starlinks.length > 0) {
-            console.log(`Loaded ${starlinks.length} Starlink satellites from CDN fallback.`);
             return {
               satellites: starlinks,
               source: 'local_fallback',
@@ -171,7 +167,6 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
 
     // 5. Fallback to expired cache if available
     if (cachedData) {
-      console.log("Using expired cache as emergency fallback.");
       return {
         satellites: parseTLE(cachedData, group),
         source: 'cache',

@@ -8,14 +8,11 @@ import { kmToSceneRadius } from '../lib/scale';
 import { getBodyRecord } from '../lib/ephemeris/bodies';
 import { useFlight } from '../flight/useFlight';
 import { useSimTime } from './useSimTime';
+import { getSatelliteGroup, useSatelliteGroups } from './satelliteGroups';
 import type { PositionRegistry } from './bodyPositions';
 
-/** Groups loaded on approach to Earth, with the colour each is drawn in. */
-const GROUPS = [
-  { id: 'starlink', color: new THREE.Color('#7dd3fc') },
-  { id: 'stations', color: new THREE.Color('#fbbf24') },
-  { id: 'gps', color: new THREE.Color('#4ade80') }
-];
+/** Frames a full pass over the loaded element sets is spread across. */
+const PROPAGATION_SLICES = 4;
 
 /** Scene units per kilometre at Earth's surface. */
 const KM_TO_SCENE = kmToSceneRadius(getBodyRecord('earth').radiusKm) / getBodyRecord('earth').radiusKm;
@@ -34,47 +31,67 @@ export function SatelliteLayer({ registry }: SatelliteLayerProps) {
   const target = useFlight((s) => s.target);
   const phase = useFlight((s) => s.phase);
   const engaged = target === 'earth' && phase !== 'overview';
-
-  const [satellites, setSatellites] = useState<SatelliteData[]>([]);
-  const [colors, setColors] = useState<Float32Array | null>(null);
-  const points = useRef<THREE.Points>(null);
+  const enabled = useSatelliteGroups((s) => s.enabled);
   const group = useRef<THREE.Group>(null);
 
+  useFrame(() => {
+    if (!engaged || !group.current) return;
+    group.current.position.copy(registry.get('earth')!);
+  });
+
+  if (!engaged) return null;
+
+  return (
+    <group ref={group} rotation={[getAxialTilt('earth'), 0, 0]}>
+      {enabled.map((id) => (
+        <SatelliteGroupPoints key={id} groupId={id} />
+      ))}
+    </group>
+  );
+}
+
+/**
+ * One constellation. Element sets are fetched once per group and propagated
+ * every frame into a single points buffer, so adding a group costs one draw
+ * call regardless of how many objects it carries.
+ */
+function SatelliteGroupPoints({ groupId }: { groupId: string }) {
+  const definition = getSatelliteGroup(groupId);
+  const [satellites, setSatellites] = useState<SatelliteData[]>([]);
+  const points = useRef<THREE.Points>(null);
+  const setCount = useSatelliteGroups((s) => s.setCount);
+
   useEffect(() => {
-    if (!engaged || satellites.length > 0) return;
     let cancelled = false;
-
-    Promise.all(GROUPS.map((g) => fetchSatellitesByGroup(g.id))).then((results) => {
+    fetchSatellitesByGroup(groupId).then((result) => {
       if (cancelled) return;
-      const loaded: SatelliteData[] = [];
-      const tint: number[] = [];
-      results.forEach((result, index) => {
-        for (const sat of result.satellites) {
-          loaded.push(sat);
-          tint.push(GROUPS[index].color.r, GROUPS[index].color.g, GROUPS[index].color.b);
-        }
-      });
-      setSatellites(loaded);
-      setColors(new Float32Array(tint));
+      setSatellites(result.satellites);
+      setCount(groupId, result.satellites.length);
     });
-
     return () => {
       cancelled = true;
     };
-  }, [engaged, satellites.length]);
+  }, [groupId, setCount]);
 
-  const positions = useMemo(() => new Float32Array(satellites.length * 3), [satellites.length]);
+  const positions = useMemo(() => new Float32Array(Math.max(satellites.length, 1) * 3), [satellites.length]);
+  const cursor = useRef(0);
 
   useFrame(() => {
-    if (!engaged || satellites.length === 0 || !points.current || !group.current) return;
-
-    const earth = registry.get('earth')!;
-    group.current.position.copy(earth);
+    if (satellites.length === 0 || !points.current) return;
 
     const date = useSimTime.getState().date;
     const attribute = points.current.geometry.getAttribute('position') as THREE.BufferAttribute;
 
-    for (let i = 0; i < satellites.length; i++) {
+    // SGP4 for eleven thousand objects every frame is the single most expensive
+    // thing in the scene. The set is propagated in slices instead: a satellite
+    // in low orbit moves under a kilometre in the few frames before its turn
+    // comes round again, which is far below one pixel at this scale.
+    const slice = Math.ceil(satellites.length / PROPAGATION_SLICES);
+    const start = cursor.current;
+    const end = Math.min(start + slice, satellites.length);
+    cursor.current = end >= satellites.length ? 0 : end;
+
+    for (let i = start; i < end; i++) {
       const state = propagate(satellites[i].satrec, date);
       const eci = state?.position;
       if (!eci || typeof eci === 'boolean') {
@@ -89,17 +106,21 @@ export function SatelliteLayer({ registry }: SatelliteLayerProps) {
     attribute.needsUpdate = true;
   });
 
-  if (!engaged || satellites.length === 0 || !colors) return null;
+  if (satellites.length === 0) return null;
 
   return (
-    <group ref={group} rotation={[getAxialTilt('earth'), 0, 0]}>
-      <points ref={points}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-          <bufferAttribute attach="attributes-color" args={[colors, 3]} />
-        </bufferGeometry>
-        <pointsMaterial size={0.012} vertexColors sizeAttenuation transparent opacity={0.95} depthWrite={false} />
-      </points>
-    </group>
+    <points ref={points}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial
+        color={definition.color}
+        size={0.014}
+        sizeAttenuation
+        transparent
+        opacity={0.95}
+        depthWrite={false}
+      />
+    </points>
   );
 }

@@ -40,7 +40,7 @@ function length(v: EclipticVec): number {
 function moonHeliocentric(id: BodyId, date: Date): EclipticVec {
   const record = getBodyRecord(id);
   if (!record.parent) throw new Error(`Body ${id} declared as moon without a parent`);
-  const parent = heliocentricOf(getBodyRecord(record.parent).id, date);
+  const parent = getHeliocentric(getBodyRecord(record.parent).id, date);
 
   if (record.engineBody) {
     const geo = GeoVector(record.engineBody, MakeTime(date), true);
@@ -71,10 +71,31 @@ function heliocentricOf(id: BodyId, date: Date): EclipticVec {
   return { x: v.x, y: v.y, z: v.z };
 }
 
+/**
+ * Single-instant memo. The scene asks for the same instant many times per frame
+ * — once per body, plus once more per moon for its parent — and a VSOP87
+ * evaluation is far too expensive to repeat for an answer already computed.
+ */
+const positionCache = new Map<BodyId, { ms: number; value: EclipticVec }>();
+
+/**
+ * Heliocentric position only, without the illumination and geometry work
+ * {@link getBodyState} does. This is the per-frame path: the scene needs
+ * eighteen positions every frame and none of the derived readouts.
+ */
+export function getHeliocentric(id: BodyId, date: Date): EclipticVec {
+  const ms = date.getTime();
+  const cached = positionCache.get(id);
+  if (cached && cached.ms === ms) return cached.value;
+  const value = heliocentricOf(id, date);
+  positionCache.set(id, { ms, value });
+  return value;
+}
+
 /** Sole astronomy entry point for the scene. Never returns three.js types. */
 export function getBodyState(id: BodyId, date: Date): BodyState {
-  const heliocentric = heliocentricOf(id, date);
-  const earth = heliocentricOf('earth', date);
+  const heliocentric = getHeliocentric(id, date);
+  const earth = getHeliocentric('earth', date);
   const geocentric = {
     x: heliocentric.x - earth.x,
     y: heliocentric.y - earth.y,

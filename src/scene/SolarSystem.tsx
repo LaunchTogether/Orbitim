@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { ALL_BODIES, PLANETS, type BodyId } from '../lib/ephemeris/bodies';
 import { useFlight } from '../flight/useFlight';
 import { Body } from './Body';
-import { BodyMarker } from './BodyMarker';
+import { BodyLabels } from './BodyLabels';
 import { OrbitPath } from './OrbitPath';
 import { Starfield } from './Starfield';
 import { CameraRig } from './CameraRig';
@@ -21,9 +21,7 @@ export function SolarSystem() {
   const target = useFlight((s) => s.target);
   const flyTo = useFlight((s) => s.flyTo);
 
-  useFrame((state, delta) => {
-    // Development probe: lets the browser session inspect live scene state.
-    (window as unknown as Record<string, unknown>).__orbitim = state;
+  useFrame((_, delta) => {
     useSimTime.getState().advance(delta);
     updatePositions(registry, useSimTime.getState().date);
   });
@@ -32,11 +30,15 @@ export function SolarSystem() {
     <>
       <Starfield />
 
-      {/* The Sun is the only meaningful light source, with physical inverse
-          square falloff: Mercury is scorched, Neptune is a sliver. A trace of
-          ambient keeps the outer planets from going fully black. */}
-      <pointLight position={[0, 0, 0]} intensity={5000} decay={2} color="#fff4e0" />
-      <ambientLight intensity={0.06} />
+      {/* The Sun is the only light source. Its falloff is deliberately not the
+          physical inverse square: orbital radius is already log-compressed by
+          the scale layer, so a true square law on top of a compressed distance
+          would put Saturn a hundred times darker than Earth on screen instead
+          of the nine times it actually is. The exponent below preserves the
+          ordering — inner worlds are brighter, outer ones dimmer — at a
+          contrast the eye can still read. */}
+      <pointLight position={[0, 0, 0]} intensity={13} decay={0.55} color="#fff4e0" />
+      <ambientLight intensity={0.08} />
 
       {PLANETS.map((planet) => (
         <OrbitPath key={planet.id} id={planet.id} date={epoch.current} highlighted={target === planet.id} />
@@ -46,9 +48,7 @@ export function SolarSystem() {
         <Body key={body.id} id={body.id} registry={registry} onSelect={(id: BodyId) => flyTo(id)} />
       ))}
 
-      {PLANETS.map((planet) => (
-        <BodyMarker key={`marker-${planet.id}`} id={planet.id} registry={registry} onSelect={(id: BodyId) => flyTo(id)} />
-      ))}
+      <BodyLabels registry={registry} onSelect={(id: BodyId) => flyTo(id)} />
 
       <SatelliteLayer registry={registry} />
 

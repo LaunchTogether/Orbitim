@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ALL_BODIES, getBodyRecord, type BodyId } from '../lib/ephemeris/bodies';
-import { getBodyState } from '../lib/ephemeris/positions';
+import { getHeliocentric } from '../lib/ephemeris/positions';
 import { heliocentricToScene, kmToSceneRadius, moonOrbitToScene } from '../lib/scale';
 
 /**
@@ -37,8 +37,7 @@ export function updatePositions(registry: PositionRegistry, date: Date): void {
       continue;
     }
 
-    const state = getBodyState(record.id, date);
-    const [x, y, z] = heliocentricToScene(state.heliocentric);
+    const [x, y, z] = heliocentricToScene(getHeliocentric(record.id, date));
     target.set(x, y, z);
   }
 }
