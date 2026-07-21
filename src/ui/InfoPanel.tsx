@@ -47,7 +47,7 @@ export function InfoPanel() {
   const moons = getMoonsOf(target);
 
   return (
-    <aside className="pointer-events-auto fixed right-6 top-1/2 z-20 w-[22rem] max-w-[calc(100vw-3rem)] -translate-y-1/2 overflow-y-auto rounded-2xl border border-white/10 bg-black/45 p-6 backdrop-blur-xl max-h-[80vh]">
+    <aside className="pointer-events-auto fixed inset-x-3 bottom-20 z-20 max-h-[52vh] overflow-y-auto rounded-2xl border border-white/10 bg-black/60 p-5 backdrop-blur-xl md:inset-x-auto md:bottom-auto md:right-6 md:top-1/2 md:max-h-[80vh] md:w-[22rem] md:-translate-y-1/2 md:p-6">
       <header className="mb-5">
         <span className="text-[10px] uppercase tracking-[0.28em] text-sky-300/70">{record.kind}</span>
         <h2 className="mt-1 text-2xl font-light tracking-tight text-white">{record.name}</h2>

@@ -29,7 +29,7 @@ export function TimeControls() {
   }, []);
 
   return (
-    <div className="pointer-events-auto fixed bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-4 rounded-full border border-white/10 bg-black/45 px-5 py-2.5 backdrop-blur-xl">
+    <div className="pointer-events-auto fixed bottom-4 left-1/2 z-20 flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 items-center gap-3 overflow-x-auto whitespace-nowrap rounded-full border border-white/10 bg-black/55 px-4 py-2 backdrop-blur-xl md:bottom-6 md:gap-4 md:px-5 md:py-2.5">
       <button
         type="button"
         onClick={togglePlaying}
@@ -39,9 +39,9 @@ export function TimeControls() {
         {playing ? 'Pause' : 'Play'}
       </button>
 
-      <span className="text-[12px] tabular-nums tracking-wide text-white/80">{stamp} UTC</span>
+      <span className="whitespace-nowrap text-[12px] tabular-nums tracking-wide text-white/80">{stamp} UTC</span>
 
-      <div className="flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1">
         {SPEEDS.map((speed) => (
           <button
             key={speed.value}

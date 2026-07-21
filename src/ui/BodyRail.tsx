@@ -15,9 +15,9 @@ export function BodyRail() {
   return (
     <nav
       aria-label="Solar system bodies"
-      className="pointer-events-auto fixed left-6 top-1/2 z-20 -translate-y-1/2"
+      className="pointer-events-auto fixed inset-x-0 top-0 z-20 overflow-x-auto px-4 py-3 md:inset-x-auto md:left-6 md:top-1/2 md:overflow-visible md:px-0 md:py-0 md:-translate-y-1/2"
     >
-      <ul className="flex flex-col gap-1">
+      <ul className="flex flex-row gap-1 md:flex-col">
         <li>
           <button
             type="button"
@@ -56,7 +56,7 @@ export function BodyRail() {
         })}
       </ul>
 
-      <p className="mt-4 px-3 text-[10px] uppercase tracking-[0.18em] text-white/25">
+      <p className="mt-4 hidden px-3 text-[10px] md:block uppercase tracking-[0.18em] text-white/25">
         {ALL_BODIES.length} bodies · live ephemeris
       </p>
     </nav>

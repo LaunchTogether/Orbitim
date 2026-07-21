@@ -50,7 +50,7 @@ export function Landing({ onEnter }: LandingProps) {
 
   return (
     <div
-      className={`pointer-events-auto fixed inset-0 z-30 flex flex-col justify-between bg-gradient-to-b from-black via-black/85 to-black/95 px-8 py-10 transition-opacity duration-700 md:px-16 md:py-14 ${
+      className={`pointer-events-auto fixed inset-0 z-30 flex flex-col justify-between gap-12 overflow-y-auto bg-gradient-to-b from-black via-black/85 to-black/95 px-8 py-10 transition-opacity duration-700 md:px-16 md:py-14 ${
         leaving ? 'opacity-0' : 'opacity-100'
       }`}
     >
