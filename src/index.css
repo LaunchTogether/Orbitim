@@ -11,12 +11,47 @@
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
 
+html,
 body {
   margin: 0;
   padding: 0;
   overflow: hidden;
+  /* A drag on the scene must not become a page pull-to-refresh or a rubber-band
+     bounce; on a phone the whole document is one WebGL surface. */
+  overscroll-behavior: none;
   background-color: #000;
   font-family: var(--font-sans);
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+canvas {
+  /* Every touch belongs to the camera, not to the scroller. */
+  touch-action: none;
+}
+
+/**
+ * Height the bottom controls occupy, so sheets can sit directly on top of them
+ * instead of guessing. On a phone the bar is two rows plus the home indicator;
+ * from `md` up the clock floats and owns no layout space.
+ */
+:root {
+  --time-bar: calc(6.25rem + env(safe-area-inset-bottom));
+}
+
+/* A phone on its side has height to spare nowhere: the clock drops to one row. */
+@media (max-height: 480px) {
+  :root {
+    --time-bar: calc(3.25rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --time-bar: 0px;
+  }
 }
 
 /* Staggered entrance for the landing screen. */

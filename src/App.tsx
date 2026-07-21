@@ -23,7 +23,9 @@ function App() {
   }, [entered, returnToOverview]);
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-black text-white antialiased">
+    /* Dynamic viewport units: on a phone `100vh` is the tallest the browser
+       chrome ever gets, which leaves the scene cropped under the address bar. */
+    <div className="relative h-[100dvh] w-screen overflow-hidden bg-black text-white antialiased">
       <SceneRoot />
 
       {entered ? (

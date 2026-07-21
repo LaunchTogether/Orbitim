@@ -9,10 +9,15 @@ import { getBodyRecord } from '../lib/ephemeris/bodies';
 import { useFlight } from '../flight/useFlight';
 import { useSimTime } from './useSimTime';
 import { getSatelliteGroup, useSatelliteGroups } from './satelliteGroups';
+import { graphicsTier } from '../lib/device';
 import type { PositionRegistry } from './bodyPositions';
 
-/** Frames a full pass over the loaded element sets is spread across. */
-const PROPAGATION_SLICES = 4;
+/**
+ * Frames a full pass over the loaded element sets is spread across. A phone CPU
+ * gets twice the slack: at low orbital speed a satellite still moves well under
+ * a pixel between its turns.
+ */
+const PROPAGATION_SLICES = graphicsTier === 'low' ? 8 : 4;
 
 /** Scene units per kilometre at Earth's surface. */
 const KM_TO_SCENE = kmToSceneRadius(getBodyRecord('earth').radiusKm) / getBodyRecord('earth').radiusKm;

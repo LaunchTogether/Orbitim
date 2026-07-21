@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { ACESFilmicToneMapping } from 'three';
 import { SolarSystem } from './SolarSystem';
 import { Effects } from './Effects';
+import { maxPixelRatio } from '../lib/device';
 
 /**
  * WebGL host. Nothing above this component knows about three.js; nothing below
@@ -13,7 +14,7 @@ export function SceneRoot() {
     <Canvas
       camera={{ position: [0, 340, 720], fov: 45, near: 0.01, far: 80000 }}
       gl={{ antialias: false, powerPreference: 'high-performance' }}
-      dpr={[1, 2]}
+      dpr={[1, maxPixelRatio]}
       frameloop="always"
       onCreated={({ gl }) => {
         gl.toneMapping = ACESFilmicToneMapping;

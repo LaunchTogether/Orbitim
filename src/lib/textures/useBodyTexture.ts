@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { getTextureSet } from './registry';
+import { graphicsTier } from '../device';
 import type { BodyId } from '../ephemeris/bodies';
 import type { BodyTextureSet, Lod } from './registry';
 
@@ -57,8 +58,11 @@ const EMPTY: BodyTextures = { map: null, emissiveMap: null, cloudMap: null, ring
  * resolved first so a body is never blank, then the near level replaces it once
  * it arrives. Loads for an unmounted body resolve into nothing.
  */
-export function useBodyTexture(id: BodyId, lod: Lod): BodyTextures {
+export function useBodyTexture(id: BodyId, requestedLod: Lod): BodyTextures {
   const [textures, setTextures] = useState<BodyTextures>(EMPTY);
+  // A phone cannot hold the 8K set, and the night-lights and cloud shells are
+  // 8K-only. On the low tier the far maps are the whole story.
+  const lod: Lod = graphicsTier === 'low' ? 'far' : requestedLod;
 
   useEffect(() => {
     const set = getTextureSet(id);
@@ -71,7 +75,9 @@ export function useBodyTexture(id: BodyId, lod: Lod): BodyTextures {
     const apply = (level: Lod) =>
       Promise.all([
         load(set.map[level], THREE.SRGBColorSpace),
-        set.emissiveMap ? load(set.emissiveMap[level], THREE.SRGBColorSpace) : Promise.resolve(null),
+        set.emissiveMap && graphicsTier === 'high'
+          ? load(set.emissiveMap[level], THREE.SRGBColorSpace)
+          : Promise.resolve(null),
         set.cloudMap && level === 'near' ? load(set.cloudMap, THREE.SRGBColorSpace) : Promise.resolve(null),
         set.ringMap ? load(set.ringMap, THREE.SRGBColorSpace) : Promise.resolve(null)
       ]).then(([map, emissiveMap, cloudMap, ringMap]) => {

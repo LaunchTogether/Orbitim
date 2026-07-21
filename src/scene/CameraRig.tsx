@@ -1,9 +1,10 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { useFlight } from '../flight/useFlight';
+import { isTouchPrimary } from '../lib/device';
 import { sceneRadiusOf, type PositionRegistry } from './bodyPositions';
 
 /** Seconds a flight leg takes, regardless of distance travelled. */
@@ -12,6 +13,13 @@ const FLIGHT_SECONDS = 2.5;
 const ORBIT_RADII = 3.2;
 /** Camera position and look-at point of the whole-system view. */
 const OVERVIEW_POSITION = new THREE.Vector3(0, 340, 720);
+/** Vertical field of view the scene was framed at, and the aspect it assumes. */
+const BASE_FOV = 45;
+const BASE_ASPECT = 16 / 9;
+/** A phone held upright would otherwise crop the system at the edges. */
+const MAX_FOV = 72;
+/** How far the overview may be pulled back to recover a portrait screen's width. */
+const MAX_OVERVIEW_PULLBACK = 2.6;
 
 function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -28,7 +36,41 @@ interface CameraRigProps {
  */
 export function CameraRig({ registry }: CameraRigProps) {
   const controls = useRef<OrbitControlsImpl>(null);
-  const { camera } = useThree();
+  const { camera, size } = useThree();
+
+  /** The overview eye point for the current window shape. */
+  const overviewEye = useRef(new THREE.Vector3().copy(OVERVIEW_POSITION));
+
+  // three's field of view is the vertical one, so a portrait window narrows the
+  // horizontal view until the outer planets fall off both sides. Two things
+  // recover the width a phone loses: a wider vertical fov, up to the point the
+  // perspective starts to stretch, and then pulling the overview back until the
+  // horizontal extent matches the one the scene was composed for.
+  useEffect(() => {
+    const perspective = camera as THREE.PerspectiveCamera;
+    const aspect = size.width / size.height;
+
+    const targetHorizontal = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(BASE_FOV) / 2) * BASE_ASPECT);
+    const vertical = 2 * Math.atan(Math.tan(targetHorizontal / 2) / aspect);
+    const fov = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(vertical), BASE_FOV, MAX_FOV);
+    perspective.fov = fov;
+    perspective.updateProjectionMatrix();
+
+    const actualHorizontal = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(fov) / 2) * aspect);
+    const pullback = THREE.MathUtils.clamp(
+      Math.tan(targetHorizontal / 2) / Math.tan(actualHorizontal / 2),
+      1,
+      MAX_OVERVIEW_PULLBACK
+    );
+    overviewEye.current.copy(OVERVIEW_POSITION).multiplyScalar(pullback);
+
+    // A rotation of the device changes the framing under a camera that is
+    // already parked on the overview, so move it rather than wait for a flight.
+    if (useFlight.getState().target === null && controls.current) {
+      camera.position.copy(overviewEye.current);
+      controls.current.target.set(0, 0, 0);
+    }
+  }, [camera, size.width, size.height]);
 
   const elapsed = useRef(0);
   const startEye = useRef(new THREE.Vector3());
@@ -50,13 +92,13 @@ export function CameraRig({ registry }: CameraRigProps) {
       // Claim the overview pose once the controls exist, so the scene always
       // opens on the whole system regardless of the camera the canvas started
       // with.
-      camera.position.copy(OVERVIEW_POSITION);
+      camera.position.copy(overviewEye.current);
       orbitControls.target.set(0, 0, 0);
       posed.current = true;
     }
 
     const destinationLook = target ? registry.get(target)!.clone() : new THREE.Vector3(0, 0, 0);
-    const destinationDistance = target ? sceneRadiusOf(target) * ORBIT_RADII : OVERVIEW_POSITION.length();
+    const destinationDistance = target ? sceneRadiusOf(target) * ORBIT_RADII : overviewEye.current.length();
 
     if (phase === 'flying') {
       if (previousPhase.current !== 'flying') {
@@ -86,7 +128,7 @@ export function CameraRig({ registry }: CameraRigProps) {
             .normalize()
             .multiplyScalar(destinationDistance)
             .add(destinationLook)
-        : scratchEye.copy(OVERVIEW_POSITION);
+        : scratchEye.copy(overviewEye.current);
 
       camera.position.lerpVectors(startEye.current, destinationEye, eased);
       // Quadratic bezier lift, zero at both ends.
@@ -124,6 +166,10 @@ export function CameraRig({ registry }: CameraRigProps) {
       enablePan={false}
       enableDamping
       dampingFactor={0.08}
+      /* A thumb sweeps far further than a mouse drag; at desktop speed a phone
+         spins the system past the body it was aimed at. */
+      rotateSpeed={isTouchPrimary ? 0.55 : 1}
+      zoomSpeed={isTouchPrimary ? 0.7 : 1}
       minDistance={0.02}
       maxDistance={4000}
       makeDefault

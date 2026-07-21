@@ -116,16 +116,17 @@ export function Landing({ onEnter }: LandingProps) {
         leaving ? 'opacity-0' : 'opacity-100'
       }`}
     >
-      {/* Scrim: heavy at the left edge where the type sits, gone by two thirds
-          across, so the scene is never fully covered. */}
+      {/* Scrim. On a phone the type runs the full width, so the wash is vertical
+          and the scene shows through the middle; from `md` it is anchored to the
+          left edge and thins out to the right, past where the column ends. */}
       <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black via-black/55 to-transparent"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black via-black/70 to-black/95 md:bg-gradient-to-r md:from-black md:via-black/55 md:to-transparent"
         aria-hidden
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black via-black/80 to-transparent" aria-hidden />
 
-      <div className="relative flex min-h-full flex-col gap-12 px-6 py-8 md:px-14 md:py-12">
-        <header className="rise flex items-center justify-between gap-6">
+      <div className="relative flex min-h-full flex-col gap-10 px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+1rem)] md:gap-12 md:px-14 md:py-12">
+        <header className="rise flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
           <span className="font-mono text-[12px] uppercase tracking-[0.5em] text-white">Orbitim</span>
           <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-white/40">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" aria-hidden />
@@ -133,13 +134,13 @@ export function Landing({ onEnter }: LandingProps) {
           </span>
         </header>
 
-        <main className="flex max-w-3xl flex-1 flex-col justify-center py-10">
+        <main className="flex max-w-3xl flex-1 flex-col justify-center py-4 md:py-10">
           <p className="rise font-mono text-[10px] uppercase tracking-[0.34em] text-sky-300/70" style={{ animationDelay: '80ms' }}>
             Solar system, observed
           </p>
 
           <h1
-            className="rise mt-5 text-balance text-[clamp(2.4rem,5.6vw,4.8rem)] font-extralight leading-[0.98] tracking-[-0.035em] text-white"
+            className="rise mt-4 text-balance text-[clamp(2rem,8.5vw,4.8rem)] font-extralight leading-[1.02] tracking-[-0.03em] text-white md:mt-5 md:leading-[0.98] md:tracking-[-0.035em]"
             style={{ animationDelay: '160ms' }}
           >
             Everything up there,
@@ -148,22 +149,26 @@ export function Landing({ onEnter }: LandingProps) {
           </h1>
 
           <p
-            className="rise mt-7 max-w-lg text-[15px] leading-relaxed text-white/55"
+            className="rise mt-5 max-w-lg text-[14px] leading-relaxed text-white/55 md:mt-7 md:text-[15px]"
             style={{ animationDelay: '240ms' }}
           >
             Eighteen worlds, their rings and moons, and eleven thousand tracked satellites — placed by
             orbital mechanics rather than by hand. Fly to any of them and read what we know today.
           </p>
 
-          <div className="rise mt-10 flex flex-wrap items-center gap-x-7 gap-y-4" style={{ animationDelay: '320ms' }}>
+          <div
+            className="rise mt-8 flex flex-wrap items-center gap-x-7 gap-y-4 md:mt-10"
+            style={{ animationDelay: '320ms' }}
+          >
             <button
               type="button"
               onClick={leave}
-              className="sweep relative overflow-hidden rounded-full border border-sky-200/30 px-9 py-3.5 font-mono text-[11px] uppercase tracking-[0.3em] text-sky-100 transition-colors hover:border-sky-200/80 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
+              className="sweep relative flex h-14 w-full items-center justify-center overflow-hidden rounded-full border border-sky-200/30 px-9 font-mono text-[11px] uppercase tracking-[0.3em] text-sky-100 transition-colors hover:border-sky-200/80 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300 sm:h-auto sm:w-auto sm:py-3.5"
             >
               Enter the system
             </button>
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/25">
+            {/* A keyboard hint is noise on a device without one. */}
+            <span className="hidden font-mono text-[10px] uppercase tracking-[0.2em] text-white/25 sm:inline">
               or press Enter
             </span>
           </div>
@@ -174,7 +179,7 @@ export function Landing({ onEnter }: LandingProps) {
             appear in a fact sheet — the Earth's own speed around the Sun, and
             how old the sunlight reaching you is. */}
         <section aria-label="Live readings" className="rise" style={{ animationDelay: '400ms' }}>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-6 border-t border-white/10 pt-6 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-5 border-t border-white/10 pt-5 sm:grid-cols-3 sm:gap-x-8 sm:gap-y-6 sm:pt-6 lg:grid-cols-5">
             {telemetry.map((reading) => (
               <div key={reading.label}>
                 <div className="font-mono text-[9px] uppercase tracking-[0.24em] text-white/30">{reading.label}</div>
@@ -184,7 +189,7 @@ export function Landing({ onEnter }: LandingProps) {
             ))}
           </div>
 
-          <div className="mt-8 grid gap-7 border-t border-white/8 pt-7 md:grid-cols-3 md:gap-12">
+          <div className="mt-6 grid gap-5 border-t border-white/8 pt-6 md:mt-8 md:grid-cols-3 md:gap-12 md:pt-7">
             {CAPABILITIES.map((capability) => (
               <article key={capability.label}>
                 <span className="font-mono text-[9px] uppercase tracking-[0.26em] text-white/30">{capability.label}</span>

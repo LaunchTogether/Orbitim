@@ -4,8 +4,13 @@ import { useFlight } from '../flight/useFlight';
 const ORDER = ['sun', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'] as const;
 
 /**
- * The only always-visible control. A vertical rail of the primary bodies; moons
- * are reached from their planet's info panel rather than crowding the rail.
+ * The only always-visible control.
+ *
+ * On a phone it is a scrollable strip across the top, on its own dimmed bar so
+ * the names stay readable over whatever the scene puts behind them; each chip
+ * snaps and is a full touch target. From `md` up it becomes the vertical rail
+ * the desktop layout is built around. Moons are reached from their planet's
+ * info panel rather than crowding either form.
  */
 export function BodyRail() {
   const target = useFlight((s) => s.target);
@@ -15,19 +20,19 @@ export function BodyRail() {
   return (
     <nav
       aria-label="Solar system bodies"
-      className="pointer-events-auto fixed inset-x-0 top-0 z-20 overflow-x-auto px-4 py-3 md:inset-x-auto md:left-6 md:top-1/2 md:overflow-visible md:px-0 md:py-0 md:-translate-y-1/2"
+      className="pointer-events-auto fixed inset-x-0 top-0 z-20 border-b border-white/10 bg-gradient-to-b from-black/80 to-black/30 pt-[env(safe-area-inset-top)] backdrop-blur-md md:inset-x-auto md:left-6 md:top-1/2 md:border-0 md:bg-none md:pt-0 md:backdrop-blur-none md:-translate-y-1/2"
     >
-      <ul className="flex flex-row gap-1 md:flex-col">
-        <li>
+      <ul className="flex snap-x snap-mandatory flex-row gap-1 overflow-x-auto px-3 py-1.5 [scrollbar-width:none] md:snap-none md:flex-col md:overflow-visible md:px-0 md:py-0">
+        <li className="snap-start">
           <button
             type="button"
             onClick={returnToOverview}
-            className={`group flex w-full items-center gap-3 rounded-full px-3 py-2 text-left transition-colors ${
-              target === null ? 'text-sky-200' : 'text-white/45 hover:text-white/85'
+            className={`group flex h-11 w-full items-center gap-2.5 whitespace-nowrap rounded-full px-3 text-left transition-colors md:h-auto md:gap-3 md:py-2 ${
+              target === null ? 'text-sky-200' : 'text-white/50 hover:text-white/85'
             }`}
           >
-            <span className="h-px w-6 bg-current opacity-60" aria-hidden />
-            <span className="text-[11px] font-medium uppercase tracking-[0.22em]">System</span>
+            <span className="h-px w-5 bg-current opacity-60 md:w-6" aria-hidden />
+            <span className="text-[11px] font-medium uppercase tracking-[0.2em] md:tracking-[0.22em]">System</span>
           </button>
         </li>
 
@@ -35,13 +40,13 @@ export function BodyRail() {
           const record = getBodyRecord(id);
           const active = target === id;
           return (
-            <li key={id}>
+            <li key={id} className="snap-start">
               <button
                 type="button"
                 onClick={() => flyTo(id)}
                 aria-current={active ? 'true' : undefined}
-                className={`group flex w-full items-center gap-3 rounded-full px-3 py-2 text-left transition-colors ${
-                  active ? 'text-sky-200' : 'text-white/45 hover:text-white/85'
+                className={`group flex h-11 w-full items-center gap-2.5 whitespace-nowrap rounded-full px-3 text-left transition-colors md:h-auto md:gap-3 md:py-2 ${
+                  active ? 'bg-white/8 text-sky-200 md:bg-transparent' : 'text-white/50 hover:text-white/85'
                 }`}
               >
                 <span
@@ -49,14 +54,16 @@ export function BodyRail() {
                   style={{ backgroundColor: record.color }}
                   aria-hidden
                 />
-                <span className="text-[11px] font-medium uppercase tracking-[0.22em]">{record.name}</span>
+                <span className="text-[11px] font-medium uppercase tracking-[0.2em] md:tracking-[0.22em]">
+                  {record.name}
+                </span>
               </button>
             </li>
           );
         })}
       </ul>
 
-      <p className="mt-4 hidden px-3 text-[10px] md:block uppercase tracking-[0.18em] text-white/25">
+      <p className="mt-4 hidden px-3 text-[10px] uppercase tracking-[0.18em] text-white/25 md:block">
         {ALL_BODIES.length} bodies · live ephemeris
       </p>
     </nav>
