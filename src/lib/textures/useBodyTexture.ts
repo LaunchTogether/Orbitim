@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { getTextureSet } from './registry';
 import type { BodyId } from '../ephemeris/bodies';
-import type { Lod } from './registry';
+import type { BodyTextureSet, Lod } from './registry';
 
 const loader = new THREE.TextureLoader();
 const cache = new Map<string, THREE.Texture>();
@@ -23,6 +23,22 @@ function load(url: string, colorSpace: THREE.ColorSpace): Promise<THREE.Texture>
       () => reject(new Error(`Texture failed to load: ${url}`))
     );
   });
+}
+
+function release(url: string | undefined): void {
+  if (!url) return;
+  const texture = cache.get(url);
+  if (!texture) return;
+  texture.dispose();
+  cache.delete(url);
+}
+
+function releaseNearTextures(set: BodyTextureSet): void {
+  // The far level stays cached: it is what the body falls back to, and it is
+  // small enough that keeping every one costs little.
+  if (set.map.near !== set.map.far) release(set.map.near);
+  if (set.emissiveMap && set.emissiveMap.near !== set.emissiveMap.far) release(set.emissiveMap.near);
+  release(set.cloudMap);
 }
 
 export interface BodyTextures {
@@ -77,6 +93,10 @@ export function useBodyTexture(id: BodyId, lod: Lod): BodyTextures {
 
     return () => {
       cancelled = true;
+      // Release this body's near-level maps as the camera leaves it. Without
+      // this every visited body keeps its 8K set resident and the driver
+      // eventually refuses to bind new textures, leaving bodies untextured.
+      if (lod === 'near') releaseNearTextures(set);
     };
   }, [id, lod]);
 

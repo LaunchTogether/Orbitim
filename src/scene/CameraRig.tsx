@@ -36,6 +36,7 @@ export function CameraRig({ registry }: CameraRigProps) {
   const lastTargetPosition = useRef(new THREE.Vector3());
   const arcLift = useRef(new THREE.Vector3());
   const previousPhase = useRef<string>('overview');
+  const posed = useRef(false);
 
   const scratchEye = new THREE.Vector3();
   const scratchLook = new THREE.Vector3();
@@ -44,6 +45,15 @@ export function CameraRig({ registry }: CameraRigProps) {
     const { phase, target, setProgress, arrive } = useFlight.getState();
     const orbitControls = controls.current;
     if (!orbitControls) return;
+
+    if (!posed.current) {
+      // Claim the overview pose once the controls exist, so the scene always
+      // opens on the whole system regardless of the camera the canvas started
+      // with.
+      camera.position.copy(OVERVIEW_POSITION);
+      orbitControls.target.set(0, 0, 0);
+      posed.current = true;
+    }
 
     const destinationLook = target ? registry.get(target)!.clone() : new THREE.Vector3(0, 0, 0);
     const destinationDistance = target ? sceneRadiusOf(target) * ORBIT_RADII : OVERVIEW_POSITION.length();

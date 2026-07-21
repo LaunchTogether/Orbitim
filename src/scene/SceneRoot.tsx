@@ -14,9 +14,10 @@ export function SceneRoot() {
       camera={{ position: [0, 340, 720], fov: 45, near: 0.01, far: 80000 }}
       gl={{ antialias: false, powerPreference: 'high-performance' }}
       dpr={[1, 2]}
+      frameloop="always"
       onCreated={({ gl }) => {
         gl.toneMapping = ACESFilmicToneMapping;
-        gl.toneMappingExposure = 1.1;
+        gl.toneMappingExposure = 0.85;
       }}
     >
       <Suspense fallback={null}>

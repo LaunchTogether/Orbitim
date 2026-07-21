@@ -1,3 +1,4 @@
+import { gstime } from 'satellite.js';
 import { getBodyRecord, type BodyId } from './bodies';
 
 /** J2000.0 epoch, the reference instant for all spin angles. */
@@ -9,6 +10,11 @@ const J2000_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
  * decreasing angle.
  */
 export function getSpinAngle(id: BodyId, date: Date): number {
+  // Earth spins by Greenwich Mean Sidereal Time so that its surface stays in
+  // register with satellite positions, which are propagated in the same
+  // Earth-centred inertial frame.
+  if (id === 'earth') return gstime(date);
+
   const { rotationHours } = getBodyRecord(id);
   const elapsedHours = (date.getTime() - J2000_MS) / 3600000;
   const turns = elapsedHours / rotationHours;

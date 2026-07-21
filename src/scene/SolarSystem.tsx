@@ -7,6 +7,7 @@ import { BodyMarker } from './BodyMarker';
 import { OrbitPath } from './OrbitPath';
 import { Starfield } from './Starfield';
 import { CameraRig } from './CameraRig';
+import { SatelliteLayer } from './SatelliteLayer';
 import { createPositionRegistry, updatePositions } from './bodyPositions';
 import { useSimTime } from './useSimTime';
 
@@ -20,7 +21,9 @@ export function SolarSystem() {
   const target = useFlight((s) => s.target);
   const flyTo = useFlight((s) => s.flyTo);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
+    // Development probe: lets the browser session inspect live scene state.
+    (window as unknown as Record<string, unknown>).__orbitim = state;
     useSimTime.getState().advance(delta);
     updatePositions(registry, useSimTime.getState().date);
   });
@@ -29,10 +32,11 @@ export function SolarSystem() {
     <>
       <Starfield />
 
-      {/* The Sun is the only light source; ambient stays near zero so night
-          sides are genuinely dark. */}
-      <pointLight position={[0, 0, 0]} intensity={4.2} decay={0} color="#fff4e0" />
-      <ambientLight intensity={0.035} />
+      {/* The Sun is the only meaningful light source, with physical inverse
+          square falloff: Mercury is scorched, Neptune is a sliver. A trace of
+          ambient keeps the outer planets from going fully black. */}
+      <pointLight position={[0, 0, 0]} intensity={5000} decay={2} color="#fff4e0" />
+      <ambientLight intensity={0.06} />
 
       {PLANETS.map((planet) => (
         <OrbitPath key={planet.id} id={planet.id} date={epoch.current} highlighted={target === planet.id} />
@@ -45,6 +49,8 @@ export function SolarSystem() {
       {PLANETS.map((planet) => (
         <BodyMarker key={`marker-${planet.id}`} id={planet.id} registry={registry} onSelect={(id: BodyId) => flyTo(id)} />
       ))}
+
+      <SatelliteLayer registry={registry} />
 
       <CameraRig registry={registry} />
     </>

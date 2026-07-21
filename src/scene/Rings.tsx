@@ -32,6 +32,7 @@ export function Rings({ record, radius, map }: RingsProps) {
   return (
     <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]}>
       <meshBasicMaterial
+        key={map?.uuid ?? 'flat'}
         map={map ?? undefined}
         color={map ? '#ffffff' : record.color}
         side={THREE.DoubleSide}

@@ -54,14 +54,15 @@ export function Body({ id, registry, onSelect }: BodyProps) {
       >
         <sphereGeometry args={[radius, SEGMENTS[lod], SEGMENTS[lod] / 2]} />
         {isStar ? (
-          <meshBasicMaterial map={textures.map ?? undefined} color={textures.map ? '#ffffff' : record.color} toneMapped={false} />
+          <meshBasicMaterial key={textures.map?.uuid ?? 'flat'} map={textures.map ?? undefined} color={textures.map ? '#ffffff' : record.color} />
         ) : (
           <meshStandardMaterial
+            key={`${textures.map?.uuid ?? 'flat'}-${textures.emissiveMap?.uuid ?? 'none'}`}
             map={textures.map ?? undefined}
             color={textures.map ? '#ffffff' : record.color}
             emissiveMap={textures.emissiveMap ?? undefined}
             emissive={textures.emissiveMap ? new THREE.Color('#ffcf87') : new THREE.Color('#000000')}
-            emissiveIntensity={textures.emissiveMap ? 0.85 : 0}
+            emissiveIntensity={textures.emissiveMap ? 0.4 : 0}
             roughness={0.92}
             metalness={0}
           />
@@ -71,7 +72,17 @@ export function Body({ id, registry, onSelect }: BodyProps) {
       {textures.cloudMap && (
         <mesh ref={clouds}>
           <sphereGeometry args={[radius * 1.006, SEGMENTS[lod], SEGMENTS[lod] / 2]} />
-          <meshStandardMaterial map={textures.cloudMap} transparent opacity={0.42} depthWrite={false} roughness={1} />
+          {/* The published cloud map is white cloud on a black sky. Added on
+              top of the surface, black contributes nothing and the clouds sit
+              over the terrain without an alpha channel to rely on. */}
+          <meshBasicMaterial
+            key={textures.cloudMap.uuid}
+            map={textures.cloudMap}
+            blending={THREE.AdditiveBlending}
+            transparent
+            opacity={0.5}
+            depthWrite={false}
+          />
         </mesh>
       )}
 
