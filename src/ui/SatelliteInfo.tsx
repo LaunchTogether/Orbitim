@@ -122,6 +122,20 @@ export function SatelliteInfo() {
           open ? 'max-h-[44dvh] overflow-y-auto [@media(max-height:480px)]:max-h-[52dvh]' : 'hidden'
         }`}
       >
+        <figure className="mb-5">
+          <div className="flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] p-3">
+            <img
+              src={`/craft/${group.craft}.png`}
+              alt={`Representative illustration of a ${group.name} class spacecraft`}
+              loading="lazy"
+              className="max-h-40 w-auto object-contain"
+            />
+          </div>
+          <figcaption className="mt-1.5 text-center text-[9px] uppercase tracking-[0.2em] text-white/25">
+            Illustration · representative of class
+          </figcaption>
+        </figure>
+
         <header className="mb-5 hidden md:block">
           <span className="text-[10px] uppercase tracking-[0.28em]" style={{ color: group.color }}>
             {group.name}

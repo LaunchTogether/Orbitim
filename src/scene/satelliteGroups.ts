@@ -11,27 +11,43 @@ export interface SatelliteGroup {
   color: string;
   /** Loaded on the first approach to Earth without being asked for. */
   defaultOn: boolean;
+  /**
+   * White silhouette sprite drawn in place of a bare point, from
+   * `public/sprites/sat-<glyph>.png`. Eight hardware classes cover fourteen
+   * groups: the readable silhouette count at point size, not one per group.
+   */
+  glyph: string;
+  /**
+   * Representative hardware illustration for the dossier, from
+   * `public/craft/<craft>.png`. Not imagery of the selected object — one
+   * drawing per class, labelled as such where it is shown.
+   */
+  craft: string;
+  /** Whether this class is orbital debris rather than a working spacecraft. */
+  debris?: boolean;
 }
 
 /**
  * Constellations and object classes that can be drawn around Earth. Each entry
- * maps to one CelesTrak element set; nothing here is synthetic.
+ * maps to one CelesTrak element set; nothing here is synthetic. `glyph` and
+ * `craft` name the shared illustration for the class, never a photo of the
+ * individual object.
  */
 export const SATELLITE_GROUPS: readonly SatelliteGroup[] = [
-  { id: 'stations', name: 'Space stations', color: '#fbbf24', defaultOn: true },
-  { id: 'starlink', name: 'Starlink', color: '#7dd3fc', defaultOn: true },
-  { id: 'oneweb', name: 'OneWeb', color: '#c4b5fd', defaultOn: false },
-  { id: 'gps', name: 'GPS', color: '#4ade80', defaultOn: true },
-  { id: 'glonass', name: 'GLONASS', color: '#f87171', defaultOn: false },
-  { id: 'galileo', name: 'Galileo', color: '#60a5fa', defaultOn: false },
-  { id: 'beidou', name: 'BeiDou', color: '#fb923c', defaultOn: false },
-  { id: 'iridium-NEXT', name: 'Iridium NEXT', color: '#a3e635', defaultOn: false },
-  { id: 'geo', name: 'Geostationary', color: '#f0abfc', defaultOn: false },
-  { id: 'weather', name: 'Weather', color: '#5eead4', defaultOn: false },
-  { id: 'science', name: 'Science', color: '#e879f9', defaultOn: false },
-  { id: 'resource', name: 'Earth observation', color: '#facc15', defaultOn: false },
-  { id: 'brightest', name: 'Brightest', color: '#ffffff', defaultOn: false },
-  { id: 'debris_iridium', name: 'Iridium 33 debris', color: '#94a3b8', defaultOn: false }
+  { id: 'stations', name: 'Space stations', color: '#fbbf24', defaultOn: true, glyph: 'station', craft: 'iss' },
+  { id: 'starlink', name: 'Starlink', color: '#7dd3fc', defaultOn: true, glyph: 'flatpack', craft: 'starlink' },
+  { id: 'oneweb', name: 'OneWeb', color: '#c4b5fd', defaultOn: false, glyph: 'flatpack', craft: 'oneweb' },
+  { id: 'gps', name: 'GPS', color: '#4ade80', defaultOn: true, glyph: 'gnss', craft: 'gps-iii' },
+  { id: 'glonass', name: 'GLONASS', color: '#f87171', defaultOn: false, glyph: 'gnss', craft: 'gps-iii' },
+  { id: 'galileo', name: 'Galileo', color: '#60a5fa', defaultOn: false, glyph: 'gnss', craft: 'gps-iii' },
+  { id: 'beidou', name: 'BeiDou', color: '#fb923c', defaultOn: false, glyph: 'gnss', craft: 'gps-iii' },
+  { id: 'iridium-NEXT', name: 'Iridium NEXT', color: '#a3e635', defaultOn: false, glyph: 'crosslink', craft: 'iridium-next' },
+  { id: 'geo', name: 'Geostationary', color: '#f0abfc', defaultOn: false, glyph: 'geo', craft: 'geo-comsat' },
+  { id: 'weather', name: 'Weather', color: '#5eead4', defaultOn: false, glyph: 'polar', craft: 'goes' },
+  { id: 'science', name: 'Science', color: '#e879f9', defaultOn: false, glyph: 'observatory', craft: 'hubble' },
+  { id: 'resource', name: 'Earth observation', color: '#facc15', defaultOn: false, glyph: 'polar', craft: 'sentinel' },
+  { id: 'brightest', name: 'Brightest', color: '#ffffff', defaultOn: false, glyph: 'observatory', craft: 'upper-stage' },
+  { id: 'debris_iridium', name: 'Iridium 33 debris', color: '#94a3b8', defaultOn: false, glyph: 'debris', craft: 'debris', debris: true }
 ];
 
 interface SatelliteState {

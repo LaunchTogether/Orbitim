@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { propagate } from 'satellite.js';
@@ -27,6 +27,37 @@ const PROPAGATION_SLICES = graphicsTier === 'low' ? 8 : 4;
  * the camera closes in, or picking near a satellite would grab its neighbours.
  */
 const PICK_FRACTION = isTouchPrimary ? 0.016 : 0.007;
+
+/** Loaded glyph textures, shared across every group that names the same class. */
+const glyphCache = new Map<string, THREE.Texture>();
+
+/**
+ * Loads the white silhouette for a hardware class once and returns it when
+ * ready. Until then the caller draws bare points, so a missing or slow sprite
+ * degrades to the old square rather than blanking the constellation.
+ */
+function useGlyphTexture(glyph: string): THREE.Texture | null {
+  const [texture, setTexture] = useState<THREE.Texture | null>(() => glyphCache.get(glyph) ?? null);
+
+  useEffect(() => {
+    const cached = glyphCache.get(glyph);
+    if (cached) {
+      setTexture(cached);
+      return;
+    }
+    let live = true;
+    new THREE.TextureLoader().load(`/sprites/sat-${glyph}.png`, (loaded) => {
+      loaded.colorSpace = THREE.SRGBColorSpace;
+      glyphCache.set(glyph, loaded);
+      if (live) setTexture(loaded);
+    });
+    return () => {
+      live = false;
+    };
+  }, [glyph]);
+
+  return texture;
+}
 
 interface SatelliteLayerProps {
   registry: PositionRegistry;
@@ -86,6 +117,7 @@ export function SatelliteLayer({ registry }: SatelliteLayerProps) {
  */
 function SatelliteGroupPoints({ groupId }: { groupId: string }) {
   const definition = getSatelliteGroup(groupId);
+  const glyph = useGlyphTexture(definition.glyph);
   const load = useSatelliteGroups((s) => s.load);
   const satellites = useSatelliteGroups((s) => s.sets[groupId]) as SatelliteData[] | undefined;
   const points = useRef<THREE.Points>(null);
@@ -167,7 +199,11 @@ function SatelliteGroupPoints({ groupId }: { groupId: string }) {
       </bufferGeometry>
       <pointsMaterial
         color={definition.color}
-        size={0.014}
+        map={glyph ?? undefined}
+        // A silhouette needs more screen than a bare dot to read; the soft
+        // alpha tail is cut so overlapping sprites never fight over depth.
+        alphaTest={glyph ? 0.25 : 0}
+        size={glyph ? 0.02 : 0.014}
         sizeAttenuation
         transparent
         opacity={0.95}
