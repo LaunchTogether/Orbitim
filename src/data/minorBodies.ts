@@ -13,7 +13,10 @@ import { elementsAtEpoch, type OrbitalElements } from '../lib/ephemeris/cometOrb
  * The element-based pipeline is checked against astronomy-engine's own Pluto,
  * which it reproduces to within a twentieth of a degree.
  */
-export type MinorBodyClass = 'dwarf-planet' | 'asteroid';
+export type MinorBodyClass = 'dwarf-planet' | 'asteroid' | 'near-earth';
+
+/** Julian date to epoch milliseconds, for elements not referred to J2000. */
+const jdToMs = (jd: number): number => (jd - 2440587.5) * 86400000;
 
 export interface MinorBody {
   id: string;
@@ -27,18 +30,6 @@ export interface MinorBody {
 }
 
 export const MINOR_BODIES: readonly MinorBody[] = [
-  {
-    id: 'ceres',
-    name: 'Ceres',
-    designation: '1 Ceres',
-    klass: 'dwarf-planet',
-    diameterKm: 939,
-    note: 'The largest body in the asteroid belt and the only dwarf planet inside Neptune.',
-    elements: elementsAtEpoch({
-      semiMajorAU: 2.7658, eccentricity: 0.0785, inclinationDeg: 10.593,
-      ascendingNodeDeg: 80.393, argPerihelionDeg: 73.597, meanAnomalyDeg: 287.42
-    })
-  },
   {
     id: 'vesta',
     name: 'Vesta',
@@ -88,18 +79,6 @@ export const MINOR_BODIES: readonly MinorBody[] = [
     })
   },
   {
-    id: 'pluto',
-    name: 'Pluto',
-    designation: '134340 Pluto',
-    klass: 'dwarf-planet',
-    diameterKm: 2377,
-    note: 'The largest known Kuiper-belt object; New Horizons flew past in 2015.',
-    elements: elementsAtEpoch({
-      semiMajorAU: 39.482, eccentricity: 0.2488, inclinationDeg: 17.16,
-      ascendingNodeDeg: 110.299, argPerihelionDeg: 113.834, meanAnomalyDeg: 14.80
-    })
-  },
-  {
     id: 'eris',
     name: 'Eris',
     designation: '136199 Eris',
@@ -133,6 +112,89 @@ export const MINOR_BODIES: readonly MinorBody[] = [
     elements: elementsAtEpoch({
       semiMajorAU: 43.13, eccentricity: 0.191, inclinationDeg: 28.21,
       ascendingNodeDeg: 121.79, argPerihelionDeg: 239.18, meanAnomalyDeg: 217.77
+    })
+  },
+
+  // Near-Earth asteroids — the population behind the CNEOS close-approach feed.
+  // Real osculating elements from the JPL Small-Body Database, at their own
+  // recent epoch (Bennu's is older but its orbit is stable), so each sits on its
+  // true path as it crosses Earth's neighbourhood.
+  {
+    id: 'apophis',
+    name: 'Apophis',
+    designation: '99942 Apophis',
+    klass: 'near-earth',
+    diameterKm: 0.34,
+    note: 'Passes inside the ring of geostationary satellites on 13 April 2029.',
+    elements: elementsAtEpoch({
+      semiMajorAU: 0.9223592206975018, eccentricity: 0.1911492279663492, inclinationDeg: 3.340996879880978,
+      ascendingNodeDeg: 203.8936514240762, argPerihelionDeg: 126.6795706895841, meanAnomalyDeg: 175.3304026592739,
+      epochMs: jdToMs(2461200.5)
+    })
+  },
+  {
+    id: 'bennu',
+    name: 'Bennu',
+    designation: '101955 Bennu',
+    klass: 'near-earth',
+    diameterKm: 0.49,
+    note: 'OSIRIS-REx returned a sample of it to Earth in 2023.',
+    elements: elementsAtEpoch({
+      semiMajorAU: 1.126391025894812, eccentricity: 0.2037450762416414, inclinationDeg: 6.03494377024794,
+      ascendingNodeDeg: 2.06086619569642, argPerihelionDeg: 66.22306084084298, meanAnomalyDeg: 101.703952002457,
+      epochMs: jdToMs(2455562.5)
+    })
+  },
+  {
+    id: 'eros',
+    name: 'Eros',
+    designation: '433 Eros',
+    klass: 'near-earth',
+    diameterKm: 16.8,
+    note: 'The first asteroid orbited and landed on, by NEAR Shoemaker in 2000–01.',
+    elements: elementsAtEpoch({
+      semiMajorAU: 1.458243716760167, eccentricity: 0.2228779627700761, inclinationDeg: 10.82854410314273,
+      ascendingNodeDeg: 304.2679713350896, argPerihelionDeg: 178.9181319135911, meanAnomalyDeg: 62.51145501986792,
+      epochMs: jdToMs(2461200.5)
+    })
+  },
+  {
+    id: 'phaethon',
+    name: 'Phaethon',
+    designation: '3200 Phaethon',
+    klass: 'near-earth',
+    diameterKm: 5.8,
+    note: 'Sheds the dust that becomes the Geminid meteor shower; skims closer to the Sun than Mercury.',
+    elements: elementsAtEpoch({
+      semiMajorAU: 1.271464620920411, eccentricity: 0.8896722843692159, inclinationDeg: 22.31052728047163,
+      ascendingNodeDeg: 265.0988060455101, argPerihelionDeg: 322.300168483426, meanAnomalyDeg: 301.4858235833354,
+      epochMs: jdToMs(2461200.5)
+    })
+  },
+  {
+    id: 'ryugu',
+    name: 'Ryugu',
+    designation: '162173 Ryugu',
+    klass: 'near-earth',
+    diameterKm: 0.9,
+    note: 'Hayabusa2 collected a subsurface sample and returned it in 2020.',
+    elements: elementsAtEpoch({
+      semiMajorAU: 1.190918932477906, eccentricity: 0.1910730049967184, inclinationDeg: 5.866442495106322,
+      ascendingNodeDeg: 251.2897124408818, argPerihelionDeg: 211.6089939475371, meanAnomalyDeg: 62.34067433781601,
+      epochMs: jdToMs(2461200.5)
+    })
+  },
+  {
+    id: 'didymos',
+    name: 'Didymos',
+    designation: '65803 Didymos',
+    klass: 'near-earth',
+    diameterKm: 0.78,
+    note: 'DART struck its moonlet Dimorphos in 2022 — the first test of planetary defence.',
+    elements: elementsAtEpoch({
+      semiMajorAU: 1.642709608529702, eccentricity: 0.3831233242624545, inclinationDeg: 3.413876519313629,
+      ascendingNodeDeg: 72.9858236207145, argPerihelionDeg: 319.5807001349104, meanAnomalyDeg: 260.8612886320632,
+      epochMs: jdToMs(2461200.5)
     })
   }
 ];

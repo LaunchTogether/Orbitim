@@ -217,5 +217,115 @@ export const BODY_FACTS: Record<BodyId, BodyFacts> = {
     moons: null,
     atmosphere: 'Thin nitrogen',
     activeMissions: ['None. Visited once, by Voyager 2 in 1989']
+  },
+  ceres: {
+    tagline: 'The largest asteroid and the only dwarf planet inside Neptune.',
+    massKg: '9.38 × 10^20 kg',
+    gravity: '0.28 m/s²',
+    meanTemp: '−105 °C',
+    dayLength: '9.07 hours',
+    yearLength: '4.6 years',
+    moons: 0,
+    atmosphere: 'Trace water vapour',
+    activeMissions: ['None. Orbited by Dawn 2015–2018']
+  },
+  pluto: {
+    tagline: 'The largest Kuiper Belt world; New Horizons flew past in 2015.',
+    massKg: '1.303 × 10^22 kg',
+    gravity: '0.62 m/s²',
+    meanTemp: '−229 °C',
+    dayLength: '153.3 hours, retrograde',
+    yearLength: '248.0 years',
+    moons: 5,
+    atmosphere: 'Thin nitrogen with methane and carbon monoxide',
+    activeMissions: ['None. Visited once, by New Horizons in 2015']
+  },
+  charon: {
+    tagline: 'Half Pluto’s size — the two orbit a point in the space between them.',
+    massKg: '1.586 × 10^21 kg',
+    gravity: '0.29 m/s²',
+    meanTemp: '−220 °C',
+    dayLength: '6.39 days, tidally locked',
+    yearLength: '6.39 days around Pluto',
+    moons: null,
+    atmosphere: 'None',
+    activeMissions: ['None. Visited once, by New Horizons in 2015']
+  },
+  mimas: {
+    tagline: 'The “Death Star” moon — one crater, Herschel, a third of its width.',
+    massKg: '3.75 × 10^19 kg',
+    gravity: '0.064 m/s²',
+    meanTemp: '−200 °C',
+    dayLength: '22.6 hours, tidally locked',
+    yearLength: '0.94 days around Saturn',
+    moons: null,
+    atmosphere: 'None',
+    activeMissions: ['None. Studied by Cassini 2004–2017']
+  },
+  enceladus: {
+    tagline: 'Hides a global ocean under ice; geysers erupt from its south pole.',
+    massKg: '1.08 × 10^20 kg',
+    gravity: '0.113 m/s²',
+    meanTemp: '−201 °C',
+    dayLength: '32.9 hours, tidally locked',
+    yearLength: '1.37 days around Saturn',
+    moons: null,
+    atmosphere: 'Tenuous water vapour from the plumes',
+    activeMissions: ['None. Studied by Cassini 2004–2017']
+  },
+  rhea: {
+    tagline: 'Saturn’s second-largest moon, an ancient cratered ball of ice.',
+    massKg: '2.31 × 10^21 kg',
+    gravity: '0.264 m/s²',
+    meanTemp: '−174 °C',
+    dayLength: '4.52 days, tidally locked',
+    yearLength: '4.52 days around Saturn',
+    moons: null,
+    atmosphere: 'Trace oxygen and carbon dioxide',
+    activeMissions: ['None. Studied by Cassini 2004–2017']
+  },
+  iapetus: {
+    tagline: 'Two-faced — one hemisphere pitch black, the other bright ice.',
+    massKg: '1.81 × 10^21 kg',
+    gravity: '0.223 m/s²',
+    meanTemp: '−143 °C',
+    dayLength: '79.3 days, tidally locked',
+    yearLength: '79.3 days around Saturn',
+    moons: null,
+    atmosphere: 'None',
+    activeMissions: ['None. Studied by Cassini 2004–2017']
+  },
+  titania: {
+    tagline: 'The largest moon of Uranus, cut by great canyons of ice.',
+    massKg: '3.40 × 10^21 kg',
+    gravity: '0.379 m/s²',
+    meanTemp: '−203 °C',
+    dayLength: '8.71 days, tidally locked',
+    yearLength: '8.71 days around Uranus',
+    moons: null,
+    atmosphere: 'Possible trace carbon dioxide',
+    activeMissions: ['None. Seen once, by Voyager 2 in 1986']
+  },
+  oberon: {
+    tagline: 'The outermost large moon of Uranus, dark and heavily cratered.',
+    massKg: '3.08 × 10^21 kg',
+    gravity: '0.346 m/s²',
+    meanTemp: '−203 °C',
+    dayLength: '13.46 days, tidally locked',
+    yearLength: '13.46 days around Uranus',
+    moons: null,
+    atmosphere: 'None',
+    activeMissions: ['None. Seen once, by Voyager 2 in 1986']
+  },
+  miranda: {
+    tagline: 'A patchwork of cliffs and terraces — the strangest surface known.',
+    massKg: '6.6 × 10^19 kg',
+    gravity: '0.079 m/s²',
+    meanTemp: '−187 °C',
+    dayLength: '1.41 days, tidally locked',
+    yearLength: '1.41 days around Uranus',
+    moons: null,
+    atmosphere: 'None',
+    activeMissions: ['None. Seen once, by Voyager 2 in 1986']
   }
 };

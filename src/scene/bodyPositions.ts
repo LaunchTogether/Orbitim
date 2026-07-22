@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ALL_BODIES, getBodyRecord, type BodyId } from '../lib/ephemeris/bodies';
-import { getHeliocentric } from '../lib/ephemeris/positions';
+import { getHeliocentric, moonDirection } from '../lib/ephemeris/positions';
 import { heliocentricToScene, kmToSceneRadius, moonOrbitToScene } from '../lib/scale';
 
 /**
@@ -25,8 +25,27 @@ export function updatePositions(registry: PositionRegistry, date: Date): void {
 
     if (record.kind === 'moon') {
       const parent = registry.get(record.parent!)!;
+      const parentRecord = getBodyRecord(record.parent!);
       const parentRadius = sceneRadiusOf(record.parent!);
-      const distance = moonOrbitToScene(record.orbitRadiusKm!, parentRadius);
+      const distance = moonOrbitToScene(record.orbitRadiusKm!, parentRadius, parentRecord.radiusKm);
+
+      // Where a real theory exists, place the moon on its true instantaneous
+      // bearing and compress only the radius. The direction is an equatorial-of-
+      // J2000 unit vector, mapped to scene axes the same way heliocentricToScene
+      // maps a heliocentric one: equatorial z becomes scene y.
+      const direction = moonDirection(record.id, date);
+      if (direction) {
+        target.set(
+          parent.x + direction.x * distance,
+          parent.y + direction.z * distance,
+          parent.z - direction.y * distance
+        );
+        continue;
+      }
+
+      // No shipped theory: a mean circular orbit at the correct radius, period
+      // and inclination. The absolute phase is not anchored to an epoch, so the
+      // longitude is representative rather than observed.
       const angle = (date.getTime() / 86400000 / record.orbitDays!) * 2 * Math.PI;
       const inclination = (record.orbitInclinationDeg! * Math.PI) / 180;
       target.set(

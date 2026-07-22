@@ -1,5 +1,7 @@
-import { HelioVector, GeoVector, Illumination, MakeTime, Body } from 'astronomy-engine';
+import { HelioVector, GeoVector, JupiterMoons, Illumination, MakeTime, Body } from 'astronomy-engine';
 import { getBodyRecord, type BodyId } from './bodies';
+import { laplaceMoonDirection } from './moonElements';
+import { propagateElements } from './cometOrbit';
 
 /** Right-handed ecliptic-of-J2000 vector, astronomical units. */
 export interface EclipticVec {
@@ -66,9 +68,14 @@ function heliocentricOf(id: BodyId, date: Date): EclipticVec {
   const record = getBodyRecord(id);
   if (record.id === 'sun') return { x: 0, y: 0, z: 0 };
   if (record.kind === 'moon') return moonHeliocentric(id, date);
-  if (!record.engineBody) throw new Error(`Body ${id} has no ephemeris source`);
-  const v = HelioVector(record.engineBody, MakeTime(date));
-  return { x: v.x, y: v.y, z: v.z };
+  if (record.engineBody) {
+    const v = HelioVector(record.engineBody, MakeTime(date));
+    return { x: v.x, y: v.y, z: v.z };
+  }
+  // A world with no shipped theory (e.g. Ceres) is propagated from its own
+  // osculating elements, in the same EQJ frame HelioVector returns.
+  if (record.elements) return propagateElements(record.elements, date);
+  throw new Error(`Body ${id} has no ephemeris source`);
 }
 
 /**
@@ -81,7 +88,7 @@ const positionCache = new Map<BodyId, { ms: number; value: EclipticVec }>();
 /**
  * Heliocentric position only, without the illumination and geometry work
  * {@link getBodyState} does. This is the per-frame path: the scene needs
- * eighteen positions every frame and none of the derived readouts.
+ * every body's position every frame and none of the derived readouts.
  */
 export function getHeliocentric(id: BodyId, date: Date): EclipticVec {
   const ms = date.getTime();
@@ -127,6 +134,35 @@ export function getBodyState(id: BodyId, date: Date): BodyState {
     magnitude,
     phaseFraction
   };
+}
+
+/**
+ * Real parent-relative direction to a moon, as a unit vector in the same
+ * equatorial-of-J2000 frame the body positions live in. astronomy-engine ships
+ * a full theory for Earth's Moon and the four Galileans, so those return their
+ * true instantaneous bearing — the moon genuinely swaps sides of its planet as
+ * it does through a telescope. The remaining major moons come from JPL mean
+ * elements (see {@link laplaceMoonDirection}); both paths share the EQJ frame.
+ * Moons with neither source return null and the caller falls back to a mean
+ * circular model.
+ */
+export function moonDirection(id: BodyId, date: Date): EclipticVec | null {
+  const record = getBodyRecord(id);
+  if (record.id === 'moon') {
+    const g = GeoVector(Body.Moon, MakeTime(date), true);
+    return unit({ x: g.x, y: g.y, z: g.z });
+  }
+  if (record.parent === 'jupiter' && (id === 'io' || id === 'europa' || id === 'ganymede' || id === 'callisto')) {
+    const s = JupiterMoons(MakeTime(date))[id];
+    return unit({ x: s.x, y: s.y, z: s.z });
+  }
+  return laplaceMoonDirection(id, date);
+}
+
+function unit(v: EclipticVec): EclipticVec {
+  const len = length(v);
+  if (len === 0) throw new Error('Cannot normalise a zero-length direction vector');
+  return { x: v.x / len, y: v.y / len, z: v.z / len };
 }
 
 export function auToKm(au: number): number {

@@ -48,7 +48,19 @@ export const TEXTURES: Partial<Record<BodyId, BodyTextureSet>> = {
   },
   uranus: { map: { far: `${T}/2k_uranus.jpg`, near: `${T}/2k_uranus.jpg` } },
   neptune: { map: { far: `${T}/2k_neptune.jpg`, near: `${T}/2k_neptune.jpg` } },
-  moon: { map: { far: `${T}/2k_moon.jpg`, near: `${T}/8k_moon.jpg` } }
+  moon: { map: { far: `${T}/2k_moon.jpg`, near: `${T}/8k_moon.jpg` } },
+  // Real global mosaics: New Horizons for Pluto and Charon, Dawn for Ceres. The
+  // published globes are monochrome — a full-globe colour equirectangular of
+  // Pluto's far side does not exist — so these carry the true grey rather than
+  // an invented tint. See public/textures/ATTRIBUTION.md.
+  ceres: { map: { far: `${T}/ceres.jpg`, near: `${T}/ceres.jpg` } },
+  pluto: { map: { far: `${T}/pluto.jpg`, near: `${T}/pluto.jpg` } },
+  charon: { map: { far: `${T}/charon.jpg`, near: `${T}/charon.jpg` } },
+  // Cassini/Voyager mosaics for the mid-sized Saturnian moons. Mimas and the
+  // Uranian moons have no clean global map, so they keep their flat shaded tint.
+  enceladus: { map: { far: `${T}/enceladus.jpg`, near: `${T}/enceladus.jpg` } },
+  rhea: { map: { far: `${T}/rhea.jpg`, near: `${T}/rhea.jpg` } },
+  iapetus: { map: { far: `${T}/iapetus.jpg`, near: `${T}/iapetus.jpg` } }
 };
 
 /**

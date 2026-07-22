@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { SceneRoot } from './scene/SceneRoot';
 import { BodyRail } from './ui/BodyRail';
 import { InfoPanel } from './ui/InfoPanel';
+import { EventsPanel } from './ui/EventsPanel';
+import { LaplacePanel } from './ui/LaplacePanel';
 import { TimeControls } from './ui/TimeControls';
 import { Landing } from './ui/Landing';
 import { ViewControls } from './ui/ViewControls';
@@ -103,6 +105,8 @@ function App() {
           {/* One dossier at a time, in one place: a satellite is read instead of
               the world it is orbiting, not alongside it. */}
           {satellite ? <SatelliteInfo /> : <InfoPanel />}
+          <EventsPanel />
+          <LaplacePanel />
           <SatellitePanel />
           <ViewControls />
           <TimeControls />

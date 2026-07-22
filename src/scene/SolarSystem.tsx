@@ -1,19 +1,25 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { ALL_BODIES, PLANETS, type BodyId } from '../lib/ephemeris/bodies';
+import { ALL_BODIES, type BodyId } from '../lib/ephemeris/bodies';
 import { useFlight } from '../flight/useFlight';
 import { AsteroidBelt } from './AsteroidBelt';
 import { Comets } from './Comets';
 import { MinorBodies } from './MinorBodies';
+import { Spacecraft } from './Spacecraft';
 import { Body } from './Body';
 import { BodyLabels } from './BodyLabels';
 import { OrbitPath } from './OrbitPath';
 import { Starfield } from './Starfield';
 import { CameraRig } from './CameraRig';
 import { SatelliteLayer } from './SatelliteLayer';
+import { LaplaceResonance } from './LaplaceResonance';
 import { createPositionRegistry, updatePositions } from './bodyPositions';
 import { useSimTime } from './useSimTime';
 import { useViewSettings } from './viewSettings';
+
+/** Bodies with a heliocentric orbit worth tracing: the eight planets and the
+ *  element-carried dwarf planets (Ceres, Pluto). Moons trace around their host. */
+const ORBIT_WORLDS = ALL_BODIES.filter((b) => b.kind === 'planet' || b.kind === 'dwarf');
 
 /**
  * Scene root. Owns the per-frame clock and the position registry; every other
@@ -53,13 +59,15 @@ export function SolarSystem() {
       <ambientLight intensity={light ? 0.55 : 0.08} />
 
       {orbitsVisible &&
-        PLANETS.map((planet) => (
-          <OrbitPath key={planet.id} id={planet.id} date={epoch.current} highlighted={target === planet.id} />
+        ORBIT_WORLDS.map((world) => (
+          <OrbitPath key={world.id} id={world.id} date={epoch.current} highlighted={target === world.id} />
         ))}
 
       <AsteroidBelt />
 
       <MinorBodies />
+
+      <Spacecraft />
 
       <Comets />
 
@@ -70,6 +78,8 @@ export function SolarSystem() {
       <BodyLabels registry={registry} onSelect={(id: BodyId) => flyTo(id)} />
 
       <SatelliteLayer registry={registry} />
+
+      <LaplaceResonance registry={registry} />
 
       <CameraRig registry={registry} />
     </>

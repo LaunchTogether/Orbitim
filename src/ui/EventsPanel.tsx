@@ -1,0 +1,96 @@
+import { useEffect, useMemo, useState } from 'react';
+import { moonPhaseNow, upcomingEvents } from '../lib/ephemeris/events';
+import { useFlight } from '../flight/useFlight';
+import { useSimTime } from '../scene/useSimTime';
+import { useViewSettings } from '../scene/viewSettings';
+
+/**
+ * The sky's calendar, shown in the overview where the right-hand column is free.
+ * The current lunar phase reads live; the event list — eclipses, transits, the
+ * next planetary conjunction — is recomputed as the clock crosses each hour, so
+ * scrubbing the date rolls the whole calendar forward with it.
+ */
+
+function formatWhen(date: Date, now: Date): { rel: string; abs: string } {
+  const days = Math.round((date.getTime() - now.getTime()) / 86400000);
+  let rel: string;
+  if (days <= 0) rel = 'imminent';
+  else if (days === 1) rel = 'tomorrow';
+  else if (days < 45) rel = `in ${days} days`;
+  else if (days < 730) rel = `in ${Math.max(1, Math.round(days / 30.44))} months`;
+  else rel = `in ${(days / 365.25).toFixed(1)} years`;
+  const abs = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  return { rel, abs };
+}
+
+export function EventsPanel() {
+  const target = useFlight((s) => s.target);
+  const light = useViewSettings((s) => s.theme === 'light');
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick((t) => t + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const now = useSimTime.getState().date;
+  const moon = moonPhaseNow(now);
+  // The event searches are the expensive part; recompute only as the simulated
+  // hour changes rather than every second.
+  const hourBucket = Math.floor(now.getTime() / 3600000);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const events = useMemo(() => upcomingEvents(now), [hourBucket]);
+
+  // Only in the overview: a selected body shows the InfoPanel in this column.
+  if (target !== null) return null;
+
+  const surface = light
+    ? 'border-slate-300/60 bg-white/70 text-slate-700'
+    : 'border-white/10 bg-black/70 text-white';
+  const muted = light ? 'text-slate-500' : 'text-white/45';
+
+  return (
+    <aside
+      className={`pointer-events-auto fixed inset-x-0 bottom-[var(--time-bar)] z-10 hidden max-h-[46dvh] overflow-y-auto rounded-t-2xl border-t px-4 pb-5 pt-4 backdrop-blur-xl [@media(min-height:560px)]:block md:inset-x-auto md:bottom-auto md:right-6 md:top-1/2 md:max-h-[80vh] md:w-[20rem] md:-translate-y-1/2 md:rounded-2xl md:border md:p-6 ${surface}`}
+    >
+      <h2 className={`text-[10px] uppercase tracking-[0.28em] ${light ? 'text-sky-600/80' : 'text-sky-300/70'}`}>
+        The sky right now
+      </h2>
+
+      <div className="mt-4 flex items-center gap-3">
+        <span className="text-3xl leading-none" aria-hidden>{moon.glyph}</span>
+        <div>
+          <div className="text-[15px] font-light tracking-tight">{moon.name}</div>
+          <div className={`text-[11px] ${muted}`}>
+            {(moon.illum * 100).toFixed(0)}% lit · {moon.waxing ? 'waxing' : 'waning'}
+          </div>
+        </div>
+      </div>
+
+      <h3 className={`mb-1 mt-6 text-[10px] uppercase tracking-[0.22em] ${light ? 'text-slate-400' : 'text-white/30'}`}>
+        Coming up
+      </h3>
+      <ul className="space-y-3">
+        {events.map((event) => {
+          const when = formatWhen(event.date, now);
+          return (
+            <li key={event.id} className="flex items-baseline justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[13px] tracking-tight">{event.label}</div>
+                <div className={`truncate text-[11px] leading-snug ${muted}`}>{event.detail}</div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className={`text-[11px] tabular-nums ${light ? 'text-sky-600' : 'text-sky-200/80'}`}>{when.rel}</div>
+                <div className={`text-[10px] tabular-nums ${muted}`}>{when.abs}</div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <p className={`mt-6 text-[10px] leading-relaxed ${light ? 'text-slate-400' : 'text-white/25'}`}>
+        Eclipses, transits and phases from astronomy-engine, for the instant on the clock.
+      </p>
+    </aside>
+  );
+}

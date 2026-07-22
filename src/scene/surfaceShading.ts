@@ -45,13 +45,18 @@ const ZONAL_DRIFT: Partial<Record<BodyId, number>> = {
  */
 function occludersOf(id: BodyId): BodyId[] {
   const record = getBodyRecord(id);
-  const casters = record.kind === 'moon' ? [record.parent!] : getMoonsOf(id).map((moon) => moon.id);
-  if (casters.length > MAX_OCCLUDERS) {
-    throw new Error(
-      `${id} has ${casters.length} shadow casters, above the shader limit of ${MAX_OCCLUDERS}`
-    );
-  }
-  return casters;
+  if (record.kind === 'moon') return [record.parent!];
+
+  const moons = getMoonsOf(id);
+  if (moons.length <= MAX_OCCLUDERS) return moons.map((moon) => moon.id);
+
+  // More moons than the shader has slots: keep the ones that cast the largest
+  // shadows — greatest angular radius seen from the planet, radius over orbit —
+  // and drop the rest, whose umbra is a sub-pixel smudge in any case.
+  return [...moons]
+    .sort((a, b) => b.radiusKm / b.orbitRadiusKm! - a.radiusKm / a.orbitRadiusKm!)
+    .slice(0, MAX_OCCLUDERS)
+    .map((moon) => moon.id);
 }
 
 const VARYINGS = /* glsl */ `

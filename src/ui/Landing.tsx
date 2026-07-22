@@ -209,7 +209,7 @@ export function Landing({ onEnter }: LandingProps) {
             className="rise mt-5 max-w-lg text-[14px] leading-relaxed text-white/55 md:mt-7 md:text-[15px]"
             style={{ animationDelay: '240ms' }}
           >
-            Eighteen worlds, their rings and moons, and eleven thousand tracked satellites — placed by
+            Twenty-eight worlds, their rings and moons, and eleven thousand tracked satellites — placed by
             orbital mechanics rather than by hand. Fly to any of them and read what we know today.
           </p>
 

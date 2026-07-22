@@ -11,10 +11,12 @@ const PERIOD_DAYS: Record<string, number> = {
   venus: 224.7,
   earth: 365.256,
   mars: 686.98,
+  ceres: 1681.6,
   jupiter: 4332.59,
   saturn: 10759.22,
   uranus: 30688.5,
-  neptune: 60182
+  neptune: 60182,
+  pluto: 90560
 };
 
 interface OrbitPathProps {

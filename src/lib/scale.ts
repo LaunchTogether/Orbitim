@@ -57,11 +57,17 @@ export function sceneRadiusToKm(units: number): number {
  * Moon orbital radius in kilometres to scene units. Moons are positioned
  * relative to their parent, not to the Sun, so they use their own compression:
  * true distances would bury Phobos inside Mars at the exaggerated body radii.
+ *
+ * The distance is a log compression of the orbit expressed in parent radii,
+ * anchored to a floor that clears the exaggerated parent disc. A previous
+ * `max(raw, floor)` clamp collapsed every inner moon of a planet onto the floor
+ * — all four Galileans landed on one circle and interpenetrated whenever their
+ * longitudes met. Because ln(orbit/parentRadius) is strictly increasing and
+ * positive for any real moon, siblings now keep their order and a visible gap.
  */
-export function moonOrbitToScene(km: number, parentSceneRadius: number): number {
-  const raw = kmToSceneRadius(km) * 0.35;
-  const minimum = parentSceneRadius * 1.8;
-  return Math.max(raw, minimum);
+export function moonOrbitToScene(km: number, parentSceneRadius: number, parentRadiusKm: number): number {
+  const floor = parentSceneRadius * 1.8;
+  return floor * (1 + 0.275 * Math.log(km / parentRadiusKm));
 }
 
 /**

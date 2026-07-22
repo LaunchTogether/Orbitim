@@ -18,13 +18,15 @@ import { useViewSettings } from './viewSettings';
 
 const CLASS_COLOR: Record<MinorBodyClass, string> = {
   'dwarf-planet': '#d8b4fe',
-  asteroid: '#c9b18c'
+  asteroid: '#c9b18c',
+  'near-earth': '#fb7a4a'
 };
 
 /** Marker size in scene units. Dwarf planets read a touch larger than rocks. */
 const CLASS_SIZE: Record<MinorBodyClass, number> = {
   'dwarf-planet': 1.5,
-  asteroid: 1.0
+  asteroid: 1.0,
+  'near-earth': 0.9
 };
 
 /** A soft round dot, drawn once and shared by every marker. */

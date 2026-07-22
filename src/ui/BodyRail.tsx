@@ -2,7 +2,7 @@ import { ALL_BODIES, getBodyRecord } from '../lib/ephemeris/bodies';
 import { useFlight } from '../flight/useFlight';
 import { useViewSettings } from '../scene/viewSettings';
 
-const ORDER = ['sun', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'] as const;
+const ORDER = ['sun', 'mercury', 'venus', 'earth', 'mars', 'ceres', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'] as const;
 
 /**
  * The only always-visible control.
