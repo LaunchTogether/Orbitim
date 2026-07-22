@@ -7,6 +7,7 @@ import { useFlight } from '../flight/useFlight';
 import { useSimTime } from '../scene/useSimTime';
 import { useSiteSelection } from '../scene/siteSelection';
 import { useIsCompact } from './useMediaQuery';
+import { BodyDisc } from './BodyDisc';
 import { Row } from './Row';
 
 function formatKm(km: number): string {
@@ -95,6 +96,7 @@ export function InfoPanel() {
         className="relative flex w-full items-center gap-3 px-4 pb-2 pt-3 text-left md:hidden"
       >
         <span className="absolute left-1/2 top-1.5 h-1 w-9 -translate-x-1/2 rounded-full bg-white/20" aria-hidden />
+        <BodyDisc id={target} className="h-9 w-9" />
         <span className="flex-1">
           <span className="block text-[10px] uppercase tracking-[0.24em] text-sky-300/70">{record.kind}</span>
           <span className="block text-lg font-light tracking-tight text-white">{record.name}</span>
@@ -108,9 +110,14 @@ export function InfoPanel() {
         }`}
       >
         <header className="mb-5 hidden md:block">
-          <span className="text-[10px] uppercase tracking-[0.28em] text-sky-300/70">{record.kind}</span>
-          <h2 className="mt-1 text-2xl font-light tracking-tight text-white">{record.name}</h2>
-          <p className="mt-2 text-[13px] leading-relaxed text-white/50">{facts.tagline}</p>
+          <div className="flex items-center gap-4">
+            <BodyDisc id={target} className="h-14 w-14" />
+            <div className="min-w-0">
+              <span className="text-[10px] uppercase tracking-[0.28em] text-sky-300/70">{record.kind}</span>
+              <h2 className="mt-1 text-2xl font-light tracking-tight text-white">{record.name}</h2>
+            </div>
+          </div>
+          <p className="mt-3 text-[13px] leading-relaxed text-white/50">{facts.tagline}</p>
         </header>
 
         <p className="mb-4 text-[13px] leading-relaxed text-white/50 md:hidden">{facts.tagline}</p>
