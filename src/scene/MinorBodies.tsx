@@ -6,6 +6,7 @@ import { MINOR_BODIES, type MinorBody, type MinorBodyClass } from '../data/minor
 import { orbitSample, propagateElements } from '../lib/ephemeris/cometOrbit';
 import { heliocentricToScene } from '../lib/scale';
 import { useSimTime } from './useSimTime';
+import { useViewSettings } from './viewSettings';
 
 /**
  * The named minor planets — the dwarf planets and the largest asteroids —
@@ -60,6 +61,8 @@ function MinorBodyMarker({ body, dot }: { body: MinorBody; dot: THREE.Texture })
   const group = useRef<THREE.Group>(null);
   const color = CLASS_COLOR[body.klass];
   const size = CLASS_SIZE[body.klass];
+  const orbitsVisible = useViewSettings((s) => s.orbitsVisible);
+  const light = useViewSettings((s) => s.theme === 'light');
 
   const orbitPoints = useMemo(
     () =>
@@ -80,7 +83,9 @@ function MinorBodyMarker({ body, dot }: { body: MinorBody; dot: THREE.Texture })
     <group>
       {/* The orbit is in absolute scene coordinates and must stay put; only the
           marker rides the body's moving position. */}
-      <Line points={orbitPoints} color={color} transparent opacity={0.06} lineWidth={0.7} depthWrite={false} />
+      {orbitsVisible && (
+        <Line points={orbitPoints} color={color} transparent opacity={0.06} lineWidth={0.7} depthWrite={false} />
+      )}
 
       <group ref={group}>
         <sprite scale={[size, size, size]}>
@@ -88,7 +93,10 @@ function MinorBodyMarker({ body, dot }: { body: MinorBody; dot: THREE.Texture })
         </sprite>
 
         <Html position={[0, 1.4, 0]} center distanceFactor={26} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
-          <span className="whitespace-nowrap text-[9px] uppercase tracking-[0.18em]" style={{ color }}>
+          <span
+            className="whitespace-nowrap text-[9px] uppercase tracking-[0.18em]"
+            style={{ color: light ? '#475569' : color }}
+          >
             {body.name}
           </span>
         </Html>

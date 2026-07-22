@@ -55,7 +55,7 @@ export function ShareLink() {
     <button
       type="button"
       onClick={share}
-      className="pointer-events-auto fixed right-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 flex h-10 items-center gap-2 rounded-full border border-white/10 bg-black/70 px-3.5 text-[10px] uppercase tracking-[0.2em] text-white/70 backdrop-blur-xl transition-colors hover:border-sky-300/50 hover:text-sky-100 md:right-6 md:top-6"
+      className="pointer-events-auto flex h-10 items-center gap-2 rounded-full border border-white/10 bg-black/70 px-3.5 text-[10px] uppercase tracking-[0.2em] text-white/70 backdrop-blur-xl transition-colors hover:border-sky-300/50 hover:text-sky-100"
     >
       {status === 'copied' ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Link2 className="h-3.5 w-3.5" />}
       {label}

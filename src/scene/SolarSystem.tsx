@@ -13,6 +13,7 @@ import { CameraRig } from './CameraRig';
 import { SatelliteLayer } from './SatelliteLayer';
 import { createPositionRegistry, updatePositions } from './bodyPositions';
 import { useSimTime } from './useSimTime';
+import { useViewSettings } from './viewSettings';
 
 /**
  * Scene root. Owns the per-frame clock and the position registry; every other
@@ -23,6 +24,8 @@ export function SolarSystem() {
   const epoch = useRef(new Date());
   const target = useFlight((s) => s.target);
   const flyTo = useFlight((s) => s.flyTo);
+  const orbitsVisible = useViewSettings((s) => s.orbitsVisible);
+  const light = useViewSettings((s) => s.theme === 'light');
 
   useFrame((_, delta) => {
     useSimTime.getState().advance(delta);
@@ -31,7 +34,9 @@ export function SolarSystem() {
 
   return (
     <>
-      <Starfield />
+      {/* The star field is the space the scene sits in; the light theme replaces
+          it with a plain field, so it is dropped rather than drawn over. */}
+      {!light && <Starfield />}
 
       {/* The Sun is the only light source. Its falloff is deliberately not the
           physical inverse square: orbital radius is already log-compressed by
@@ -41,11 +46,16 @@ export function SolarSystem() {
           ordering — inner worlds are brighter, outer ones dimmer — at a
           contrast the eye can still read. */}
       <pointLight position={[0, 0, 0]} intensity={13} decay={0.55} color="#fff4e0" />
-      <ambientLight intensity={0.08} />
+      {/* On the light field there is no star glow to lift the night sides, so a
+          body lit by the Sun alone reads as a black disc against white. A raised
+          fill turns the far side to shaded grey instead — enough to see the body
+          by, without flattening the terminator the point light draws. */}
+      <ambientLight intensity={light ? 0.55 : 0.08} />
 
-      {PLANETS.map((planet) => (
-        <OrbitPath key={planet.id} id={planet.id} date={epoch.current} highlighted={target === planet.id} />
-      ))}
+      {orbitsVisible &&
+        PLANETS.map((planet) => (
+          <OrbitPath key={planet.id} id={planet.id} date={epoch.current} highlighted={target === planet.id} />
+        ))}
 
       <AsteroidBelt />
 

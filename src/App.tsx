@@ -4,7 +4,7 @@ import { BodyRail } from './ui/BodyRail';
 import { InfoPanel } from './ui/InfoPanel';
 import { TimeControls } from './ui/TimeControls';
 import { Landing } from './ui/Landing';
-import { ShareLink } from './ui/ShareLink';
+import { ViewControls } from './ui/ViewControls';
 import { useFlight } from './flight/useFlight';
 import { SatellitePanel } from './ui/SatellitePanel';
 import { SatelliteInfo } from './ui/SatelliteInfo';
@@ -104,7 +104,7 @@ function App() {
               the world it is orbiting, not alongside it. */}
           {satellite ? <SatelliteInfo /> : <InfoPanel />}
           <SatellitePanel />
-          <ShareLink />
+          <ViewControls />
           <TimeControls />
         </>
       ) : (

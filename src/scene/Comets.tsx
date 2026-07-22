@@ -6,6 +6,7 @@ import { COMETS, type Comet } from '../data/comets';
 import { orbitSample, propagateElements, semiMajorAxisAU } from '../lib/ephemeris/cometOrbit';
 import { heliocentricToScene } from '../lib/scale';
 import { useSimTime } from './useSimTime';
+import { useViewSettings } from './viewSettings';
 
 /**
  * Comets carried on their real orbits. The nucleus rides the published two-body
@@ -69,6 +70,8 @@ function CometBody({ comet, coma, tail }: CometBodyProps) {
   const comaRef = useRef<THREE.Sprite>(null);
   const tailRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
+  const orbitsVisible = useViewSettings((s) => s.orbitsVisible);
+  const light = useViewSettings((s) => s.theme === 'light');
 
   // Plane translated so its near edge sits on the nucleus; the tail texture
   // streams to the right from that edge, so +x is the anti-sunward direction.
@@ -138,7 +141,7 @@ function CometBody({ comet, coma, tail }: CometBodyProps) {
     <group>
       {/* The orbit is in absolute scene coordinates; only the nucleus, coma and
           tail ride the comet's moving position. */}
-      {orbitPoints && (
+      {orbitsVisible && orbitPoints && (
         <Line points={orbitPoints} color="#8fb3c7" transparent opacity={0.07} lineWidth={0.8} depthWrite={false} />
       )}
 
@@ -168,7 +171,11 @@ function CometBody({ comet, coma, tail }: CometBodyProps) {
         zIndexRange={[10, 0]}
         style={{ pointerEvents: 'none' }}
       >
-        <span className="whitespace-nowrap text-[10px] uppercase tracking-[0.18em] text-sky-100/70">
+        <span
+          className={`whitespace-nowrap text-[10px] uppercase tracking-[0.18em] ${
+            light ? 'text-slate-600' : 'text-sky-100/70'
+          }`}
+        >
           {comet.name}
         </span>
       </Html>

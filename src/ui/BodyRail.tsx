@@ -1,5 +1,6 @@
 import { ALL_BODIES, getBodyRecord } from '../lib/ephemeris/bodies';
 import { useFlight } from '../flight/useFlight';
+import { useViewSettings } from '../scene/viewSettings';
 
 const ORDER = ['sun', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'] as const;
 
@@ -16,6 +17,15 @@ export function BodyRail() {
   const target = useFlight((s) => s.target);
   const flyTo = useFlight((s) => s.flyTo);
   const returnToOverview = useFlight((s) => s.returnToOverview);
+  const light = useViewSettings((s) => s.theme === 'light');
+
+  // On a phone the rail keeps its dark strip whatever the theme, so its text
+  // stays light there; only from `md` up, where the rail is bare text over the
+  // scene, does the light theme need dark text to be legible on the light field.
+  const idle = light
+    ? 'text-white/50 hover:text-white/85 md:text-slate-500 md:hover:text-slate-900'
+    : 'text-white/50 hover:text-white/85';
+  const active = light ? 'text-sky-200 md:text-sky-600' : 'text-sky-200';
 
   return (
     <nav
@@ -28,7 +38,7 @@ export function BodyRail() {
             type="button"
             onClick={returnToOverview}
             className={`group flex h-11 w-full items-center gap-2.5 whitespace-nowrap rounded-full px-3 text-left transition-colors md:h-auto md:gap-3 md:py-2 ${
-              target === null ? 'text-sky-200' : 'text-white/50 hover:text-white/85'
+              target === null ? active : idle
             }`}
           >
             <span className="h-px w-5 bg-current opacity-60 md:w-6" aria-hidden />
@@ -38,15 +48,15 @@ export function BodyRail() {
 
         {ORDER.map((id) => {
           const record = getBodyRecord(id);
-          const active = target === id;
+          const isActive = target === id;
           return (
             <li key={id} className="snap-start">
               <button
                 type="button"
                 onClick={() => flyTo(id)}
-                aria-current={active ? 'true' : undefined}
+                aria-current={isActive ? 'true' : undefined}
                 className={`group flex h-11 w-full items-center gap-2.5 whitespace-nowrap rounded-full px-3 text-left transition-colors md:h-auto md:gap-3 md:py-2 ${
-                  active ? 'bg-white/8 text-sky-200 md:bg-transparent' : 'text-white/50 hover:text-white/85'
+                  isActive ? `bg-white/8 md:bg-transparent ${active}` : idle
                 }`}
               >
                 <span
@@ -63,7 +73,11 @@ export function BodyRail() {
         })}
       </ul>
 
-      <p className="mt-4 hidden px-3 text-[10px] uppercase tracking-[0.18em] text-white/25 md:block">
+      <p
+        className={`mt-4 hidden px-3 text-[10px] uppercase tracking-[0.18em] md:block ${
+          light ? 'text-slate-400' : 'text-white/25'
+        }`}
+      >
         {ALL_BODIES.length} bodies · live ephemeris
       </p>
     </nav>

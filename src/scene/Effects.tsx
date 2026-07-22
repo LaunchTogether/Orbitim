@@ -1,5 +1,6 @@
 import { EffectComposer, Bloom, SMAA, Vignette } from '@react-three/postprocessing';
 import { graphicsTier } from '../lib/device';
+import { useViewSettings } from './viewSettings';
 
 /**
  * Cinematic grade. Bloom carries the Sun and the city lights, SMAA cleans the
@@ -12,10 +13,13 @@ import { graphicsTier } from '../lib/device';
  * is close to invisible.
  */
 export function Effects() {
+  const light = useViewSettings((s) => s.theme === 'light');
   return (
     <EffectComposer enableNormalPass={false} multisampling={0}>
       <Bloom intensity={0.55} luminanceThreshold={0.82} luminanceSmoothing={0.3} mipmapBlur />
-      <Vignette eskil={false} offset={0.26} darkness={0.7} />
+      {/* The vignette pulls focus on the dark field; over the light theme the
+          same darkening only greys the corners, so it is dropped there. */}
+      {light ? <></> : <Vignette eskil={false} offset={0.26} darkness={0.7} />}
       {graphicsTier === 'high' ? <SMAA /> : <></>}
     </EffectComposer>
   );

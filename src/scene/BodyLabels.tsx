@@ -5,6 +5,7 @@ import { Html } from '@react-three/drei';
 import { PLANETS, type BodyId } from '../lib/ephemeris/bodies';
 import { useFlight } from '../flight/useFlight';
 import { sceneRadiusOf, type PositionRegistry } from './bodyPositions';
+import { useViewSettings } from './viewSettings';
 
 interface BodyLabelsProps {
   registry: PositionRegistry;
@@ -43,6 +44,7 @@ const LEADER_THRESHOLD = 4;
  */
 export function BodyLabels({ registry, onSelect }: BodyLabelsProps) {
   const { camera, size } = useThree();
+  const light = useViewSettings((s) => s.theme === 'light');
   const nodes = useRef(new Map<BodyId, HTMLButtonElement | null>());
   const leaders = useRef(new Map<BodyId, SVGLineElement | null>());
   const projected = useMemo(() => new THREE.Vector3(), []);
@@ -180,10 +182,12 @@ export function BodyLabels({ registry, onSelect }: BodyLabelsProps) {
             type="button"
             onClick={() => onSelect(planet.id)}
             style={{ opacity: 0 }}
-            className="absolute left-0 top-0 flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.18em] text-white/55 transition-[opacity,color] duration-300 hover:text-sky-200"
+            className={`absolute left-0 top-0 flex items-center gap-2 whitespace-nowrap rounded-full px-2 py-1 text-[10px] uppercase tracking-[0.18em] transition-[opacity,color] duration-300 ${
+              light ? 'text-slate-600 hover:text-sky-600' : 'text-white/55 hover:text-sky-200'
+            }`}
           >
             <span
-              className="h-1.5 w-1.5 rounded-full ring-2 ring-white/10"
+              className={`h-1.5 w-1.5 rounded-full ring-2 ${light ? 'ring-black/10' : 'ring-white/10'}`}
               style={{ backgroundColor: planet.color }}
               aria-hidden
             />
