@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useFlight } from '../flight/useFlight';
 import { ISS_NORAD_ID, SATELLITE_GROUPS, useSatelliteGroups } from '../scene/satelliteGroups';
 import { useSatelliteSelection } from '../scene/satelliteSelection';
@@ -60,10 +60,17 @@ export function SatellitePanel() {
   const total = enabled.reduce((sum, id) => sum + (sets[id]?.length ?? 0), 0);
   const list = (
     <ul className="grid grid-cols-2 gap-x-2 px-2 pb-3 md:block md:max-h-[46vh] md:overflow-y-auto md:pb-2">
-      {SATELLITE_GROUPS.map((group) => {
+      {SATELLITE_GROUPS.map((group, index) => {
         const active = enabled.includes(group.id);
+        const startsDebris = group.debris && !SATELLITE_GROUPS[index - 1]?.debris;
         return (
-          <li key={group.id}>
+          <Fragment key={group.id}>
+            {startsDebris && (
+              <li className="col-span-2 mt-2 border-t border-white/8 px-2 pb-1 pt-2 text-[9px] uppercase tracking-[0.24em] text-white/25">
+                Debris clouds
+              </li>
+            )}
+            <li>
             <button
               type="button"
               onClick={() => toggle(group.id)}
@@ -82,7 +89,8 @@ export function SatellitePanel() {
                 <span className="tabular-nums text-[10px] text-white/30">{sets[group.id].length}</span>
               )}
             </button>
-          </li>
+            </li>
+          </Fragment>
         );
       })}
     </ul>

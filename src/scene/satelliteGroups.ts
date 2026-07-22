@@ -47,7 +47,10 @@ export const SATELLITE_GROUPS: readonly SatelliteGroup[] = [
   { id: 'science', name: 'Science', color: '#e879f9', defaultOn: false, glyph: 'observatory', craft: 'hubble' },
   { id: 'resource', name: 'Earth observation', color: '#facc15', defaultOn: false, glyph: 'polar', craft: 'sentinel' },
   { id: 'brightest', name: 'Brightest', color: '#ffffff', defaultOn: false, glyph: 'observatory', craft: 'upper-stage' },
-  { id: 'debris_iridium', name: 'Iridium 33 debris', color: '#94a3b8', defaultOn: false, glyph: 'debris', craft: 'debris', debris: true }
+  { id: 'debris_iridium', name: 'Iridium 33 debris', color: '#94a3b8', defaultOn: false, glyph: 'debris', craft: 'debris', debris: true },
+  { id: 'debris_cosmos', name: 'Cosmos 2251 debris', color: '#cbd5e1', defaultOn: false, glyph: 'debris', craft: 'debris', debris: true },
+  { id: 'debris_fengyun', name: 'Fengyun 1C debris', color: '#78716c', defaultOn: false, glyph: 'debris', craft: 'debris', debris: true },
+  { id: 'debris_cosmos1408', name: 'Cosmos 1408 debris', color: '#64748b', defaultOn: false, glyph: 'debris', craft: 'debris', debris: true }
 ];
 
 interface SatelliteState {

@@ -54,8 +54,11 @@ export async function fetchSatellitesByGroup(group: string = 'starlink'): Promis
     fileName = 'cosmos-2251-debris.tle';
     celestrakGroup = 'cosmos-2251-debris';
   } else if (group === 'debris_fengyun') {
-    fileName = '1999-025y.tle';
-    celestrakGroup = '1999-025y';
+    fileName = 'fengyun-1c-debris.tle';
+    celestrakGroup = 'fengyun-1c-debris';
+  } else if (group === 'debris_cosmos1408') {
+    fileName = 'cosmos-1408-debris.tle';
+    celestrakGroup = 'cosmos-1408-debris';
   }
 
   const githubUrl = `https://raw.githubusercontent.com/satvisorcom/satvisor-data/master/celestrak/tle/${fileName}`;
