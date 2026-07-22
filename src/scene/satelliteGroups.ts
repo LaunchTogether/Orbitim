@@ -13,13 +13,13 @@ export interface SatelliteGroup {
   defaultOn: boolean;
   /**
    * White silhouette sprite drawn in place of a bare point, from
-   * `public/sprites/sat-<glyph>.png`. Eight hardware classes cover fourteen
+   * `public/sprites/sat-<glyph>.webp`. Eight hardware classes cover fourteen
    * groups: the readable silhouette count at point size, not one per group.
    */
   glyph: string;
   /**
    * Representative hardware illustration for the dossier, from
-   * `public/craft/<craft>.png`. Not imagery of the selected object — one
+   * `public/craft/<craft>.webp`. Not imagery of the selected object — one
    * drawing per class, labelled as such where it is shown.
    */
   craft: string;

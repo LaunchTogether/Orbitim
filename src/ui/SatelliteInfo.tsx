@@ -125,7 +125,7 @@ export function SatelliteInfo() {
         <figure className="mb-5">
           <div className="flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] p-3">
             <img
-              src={`/craft/${group.craft}.png`}
+              src={`/craft/${group.craft}.webp`}
               alt={`Representative illustration of a ${group.name} class spacecraft`}
               loading="lazy"
               className="max-h-40 w-auto object-contain"

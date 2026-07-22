@@ -46,7 +46,7 @@ function useGlyphTexture(glyph: string): THREE.Texture | null {
       return;
     }
     let live = true;
-    new THREE.TextureLoader().load(`/sprites/sat-${glyph}.png`, (loaded) => {
+    new THREE.TextureLoader().load(`/sprites/sat-${glyph}.webp`, (loaded) => {
       loaded.colorSpace = THREE.SRGBColorSpace;
       glyphCache.set(glyph, loaded);
       if (live) setTexture(loaded);

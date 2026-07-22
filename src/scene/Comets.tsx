@@ -47,8 +47,8 @@ function useEffectTexture(url: string): THREE.Texture | null {
 }
 
 export function Comets() {
-  const coma = useEffectTexture('/effects/comet-coma.png');
-  const tail = useEffectTexture('/effects/comet-tail.png');
+  const coma = useEffectTexture('/effects/comet-coma.webp');
+  const tail = useEffectTexture('/effects/comet-tail.webp');
   return (
     <group>
       {COMETS.map((comet) => (
