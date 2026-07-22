@@ -4,6 +4,7 @@ import { ALL_BODIES, PLANETS, type BodyId } from '../lib/ephemeris/bodies';
 import { useFlight } from '../flight/useFlight';
 import { AsteroidBelt } from './AsteroidBelt';
 import { Comets } from './Comets';
+import { MinorBodies } from './MinorBodies';
 import { Body } from './Body';
 import { BodyLabels } from './BodyLabels';
 import { OrbitPath } from './OrbitPath';
@@ -47,6 +48,8 @@ export function SolarSystem() {
       ))}
 
       <AsteroidBelt />
+
+      <MinorBodies />
 
       <Comets />
 

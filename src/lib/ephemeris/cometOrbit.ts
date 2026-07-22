@@ -51,6 +51,38 @@ export function orbitalPeriodDays(el: OrbitalElements): number {
   return YEAR_DAYS * Math.pow(semiMajorAxisAU(el), 1.5);
 }
 
+/** Noon TT, 1 January 2000 — the J2000 epoch, epoch milliseconds. */
+export const J2000_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
+
+/**
+ * Builds the propagator's element form from the mean-anomaly-at-epoch set the
+ * minor-planet catalogues publish (a, e, i, Ω, ω, M at an epoch), by solving for
+ * the time of perihelion passage the propagator wants. Defaults to the J2000
+ * epoch, which is what the standard osculating element sets are referenced to.
+ */
+export function elementsAtEpoch(input: {
+  semiMajorAU: number;
+  eccentricity: number;
+  inclinationDeg: number;
+  ascendingNodeDeg: number;
+  argPerihelionDeg: number;
+  meanAnomalyDeg: number;
+  epochMs?: number;
+}): OrbitalElements {
+  const epoch = input.epochMs ?? J2000_EPOCH_MS;
+  const base: OrbitalElements = {
+    perihelionAU: input.semiMajorAU * (1 - input.eccentricity),
+    eccentricity: input.eccentricity,
+    inclinationDeg: input.inclinationDeg,
+    ascendingNodeDeg: input.ascendingNodeDeg,
+    argPerihelionDeg: input.argPerihelionDeg,
+    perihelionEpochMs: 0
+  };
+  const n = (2 * Math.PI) / orbitalPeriodDays(base);
+  base.perihelionEpochMs = epoch - ((input.meanAnomalyDeg * DEG) / n) * DAY_MS;
+  return base;
+}
+
 /** Solve Kepler's equation E − e·sinE = M for the eccentric anomaly. */
 function eccentricAnomaly(meanAnomaly: number, e: number): number {
   // Wrap into (−π, π] so a highly eccentric orbit starts Newton near the root.

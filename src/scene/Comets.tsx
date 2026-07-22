@@ -135,11 +135,14 @@ function CometBody({ comet, coma, tail }: CometBodyProps) {
   });
 
   return (
-    <group ref={group}>
+    <group>
+      {/* The orbit is in absolute scene coordinates; only the nucleus, coma and
+          tail ride the comet's moving position. */}
       {orbitPoints && (
         <Line points={orbitPoints} color="#8fb3c7" transparent opacity={0.07} lineWidth={0.8} depthWrite={false} />
       )}
 
+      <group ref={group}>
       {tail && (
         <mesh ref={tailRef} geometry={tailGeometry}>
           <meshBasicMaterial
@@ -169,6 +172,7 @@ function CometBody({ comet, coma, tail }: CometBodyProps) {
           {comet.name}
         </span>
       </Html>
+      </group>
     </group>
   );
 }
