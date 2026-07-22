@@ -30,7 +30,10 @@ const T = '/textures';
 export const TEXTURES: Partial<Record<BodyId, BodyTextureSet>> = {
   sun: { map: { far: `${T}/2k_sun.jpg`, near: `${T}/8k_sun.jpg` } },
   mercury: { map: { far: `${T}/2k_mercury.jpg`, near: `${T}/8k_mercury.jpg` } },
-  venus: { map: { far: `${T}/2k_venus_surface.jpg`, near: `${T}/8k_venus_surface.jpg` } },
+  // The cloud deck, not the radar-mapped ground under it: from space Venus is a
+  // featureless sulphuric-yellow ball, and the surface is never seen through it.
+  // The cloud tops carry almost no detail, so the 2K plate is the whole picture.
+  venus: { map: { far: `${T}/2k_venus_atmosphere.webp`, near: `${T}/2k_venus_atmosphere.webp` } },
   earth: {
     map: { far: `${T}/2k_earth_daymap.jpg`, near: `${T}/8k_earth_daymap.jpg` },
     emissiveMap: { far: `${T}/8k_earth_nightmap.jpg`, near: `${T}/8k_earth_nightmap.jpg` },
