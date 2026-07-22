@@ -6,6 +6,41 @@ interface LandingProps {
   onEnter: () => void;
 }
 
+/** Whether the visitor has asked the OS to keep motion to a minimum. */
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduced(query.matches);
+    const onChange = () => setReduced(query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
+  return reduced;
+}
+
+/**
+ * The brand mark: a hairline orbit tilted out of the plane with a dot riding it.
+ * The dot follows the ellipse itself, so the mark is the product in miniature.
+ * With reduced motion the dot simply rests on the orbit.
+ */
+function OrbitMark({ animate }: { animate: boolean }) {
+  return (
+    <svg viewBox="0 0 100 100" className="h-6 w-6 shrink-0" aria-hidden>
+      <g transform="rotate(-23 50 50)">
+        <ellipse cx="50" cy="50" rx="40" ry="15" fill="none" stroke="#7dd3fc" strokeWidth="2" opacity="0.8" />
+        {animate ? (
+          <circle r="5" fill="#bae6fd">
+            <animateMotion dur="6.5s" repeatCount="indefinite" path="M 10,50 a 40,15 0 1,1 80,0 a 40,15 0 1,1 -80,0" />
+          </circle>
+        ) : (
+          <circle cx="12" cy="55" r="5" fill="#bae6fd" />
+        )}
+      </g>
+    </svg>
+  );
+}
+
 interface Reading {
   label: string;
   value: string;
@@ -88,6 +123,7 @@ const CAPABILITIES = [
 export function Landing({ onEnter }: LandingProps) {
   const [leaving, setLeaving] = useState(false);
   const [instant, setInstant] = useState(() => new Date());
+  const reduced = usePrefersReducedMotion();
 
   useEffect(() => {
     const timer = window.setInterval(() => setInstant(new Date()), 1000);
@@ -125,9 +161,30 @@ export function Landing({ onEnter }: LandingProps) {
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black via-black/80 to-transparent" aria-hidden />
 
+      {/* A faint scan behind the type, breaking the banding a flat black gradient
+          leaves and reading as an instrument surface rather than a flat wash. */}
+      <div
+        className="scan-drift pointer-events-none absolute inset-0 opacity-[0.5] mix-blend-soft-light"
+        style={{
+          backgroundImage: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 4px)'
+        }}
+        aria-hidden
+      />
+
+      {/* Instrument registration marks at the corners, drawn in on entry. */}
+      <div className="pointer-events-none absolute inset-4 hidden md:block" aria-hidden>
+        <span className="hud-corner absolute left-0 top-0 h-5 w-5 border-l border-t border-sky-200/25" style={{ animationDelay: '500ms' }} />
+        <span className="hud-corner absolute right-0 top-0 h-5 w-5 border-r border-t border-sky-200/25" style={{ animationDelay: '600ms' }} />
+        <span className="hud-corner absolute bottom-0 left-0 h-5 w-5 border-b border-l border-sky-200/25" style={{ animationDelay: '700ms' }} />
+        <span className="hud-corner absolute bottom-0 right-0 h-5 w-5 border-b border-r border-sky-200/25" style={{ animationDelay: '800ms' }} />
+      </div>
+
       <div className="relative flex min-h-full flex-col gap-10 px-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-[calc(env(safe-area-inset-top)+1rem)] md:gap-12 md:px-14 md:py-12">
         <header className="rise flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-          <span className="font-mono text-[12px] uppercase tracking-[0.5em] text-white">Orbitim</span>
+          <span className="flex items-center gap-3">
+            <OrbitMark animate={!reduced} />
+            <span className="font-mono text-[12px] uppercase tracking-[0.5em] text-white">Orbitim</span>
+          </span>
           <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em] text-white/40">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" aria-hidden />
             Live · {ALL_BODIES.length} bodies
@@ -183,7 +240,11 @@ export function Landing({ onEnter }: LandingProps) {
             {telemetry.map((reading) => (
               <div key={reading.label}>
                 <div className="font-mono text-[9px] uppercase tracking-[0.24em] text-white/30">{reading.label}</div>
-                <div className="mt-1.5 font-mono text-[18px] font-light tabular-nums text-white/90">{reading.value}</div>
+                <div className="mt-1.5 font-mono text-[18px] font-light tabular-nums text-white/90">
+                  <span key={reading.value} className="value-flash inline-block">
+                    {reading.value}
+                  </span>
+                </div>
                 <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-sky-300/50">{reading.unit}</div>
               </div>
             ))}
