@@ -178,8 +178,8 @@ No environment variables, no `.env`, nothing to provision.
 
 ## 📄 License
 
-No license file yet. Add a `LICENSE` before reusing the code. Texture imagery is
-CC BY 4.0 from Solar System Scope — see `public/textures/ATTRIBUTION.md`.
+Code is [MIT](LICENSE). Surface imagery is CC BY 4.0 from Solar System Scope,
+not covered by the MIT grant — see `public/textures/ATTRIBUTION.md`.
 
 ---
 

@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="void" cx="62%" cy="46%" r="75%">
+      <stop offset="0%" stop-color="#0b1220" />
+      <stop offset="60%" stop-color="#05070c" />
+      <stop offset="100%" stop-color="#000000" />
+    </radialGradient>
+    <radialGradient id="sun" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff4e0" />
+      <stop offset="35%" stop-color="#f4a94b" stop-opacity="0.7" />
+      <stop offset="100%" stop-color="#f4a94b" stop-opacity="0" />
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.2" />
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#void)" />
+
+  <!-- A hairline orbit sweeping the right side, a planet riding it, a scatter of
+       satellites above — the product in one still frame. -->
+  <g transform="translate(830 300)">
+    <circle cx="120" cy="60" r="230" fill="url(#sun)" />
+    <g transform="rotate(-19)">
+      <ellipse cx="0" cy="0" rx="470" ry="150" fill="none" stroke="#7dd3fc" stroke-width="1.4" opacity="0.55" />
+      <ellipse cx="0" cy="0" rx="300" ry="96" fill="none" stroke="#7dd3fc" stroke-width="1.2" opacity="0.3" />
+      <circle cx="-470" cy="0" r="9" fill="#bae6fd" filter="url(#soft)" />
+      <circle cx="300" cy="0" r="5" fill="#7dd3fc" />
+    </g>
+    <g fill="#7dd3fc">
+      <circle cx="-260" cy="-150" r="2.6" opacity="0.9" />
+      <circle cx="-140" cy="-205" r="2.2" opacity="0.8" />
+      <circle cx="10" cy="-232" r="3" opacity="0.95" />
+      <circle cx="170" cy="-214" r="2.2" opacity="0.7" />
+      <circle cx="300" cy="-168" r="2.6" opacity="0.85" />
+      <circle cx="-320" cy="-70" r="2" opacity="0.6" />
+      <circle cx="380" cy="-96" r="2" opacity="0.6" />
+    </g>
+  </g>
+
+  <!-- Brand block, lower left. -->
+  <g transform="translate(96 250)">
+    <g transform="translate(0 -60)">
+      <g transform="rotate(-23 22 22)">
+        <ellipse cx="22" cy="22" rx="20" ry="7.5" fill="none" stroke="#7dd3fc" stroke-width="2.4" />
+        <circle cx="3.5" cy="22" r="4.4" fill="#bae6fd" />
+      </g>
+    </g>
+    <text x="0" y="88" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="200"
+          font-size="104" letter-spacing="10" fill="#ffffff">ORBITIM</text>
+    <text x="4" y="140" font-family="'SF Mono', 'Courier New', monospace" font-weight="400"
+          font-size="21" letter-spacing="7" fill="#7dd3fc" opacity="0.75">THE SOLAR SYSTEM, RIGHT NOW</text>
+  </g>
+</svg>
