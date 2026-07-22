@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { getBodyRecord, type BodyId } from '../lib/ephemeris/bodies';
@@ -7,11 +7,14 @@ import { useBodyTexture } from '../lib/textures/useBodyTexture';
 import { lodFor, useFlight } from '../flight/useFlight';
 import { useSimTime } from './useSimTime';
 import { sceneRadiusOf, type PositionRegistry } from './bodyPositions';
-import { useBodyShading } from './surfaceShading';
+import { mergePatches, useBodyShading } from './surfaceShading';
+import { useMoonRelief } from './moonRelief';
 import { Rings } from './Rings';
 import { SunGlow } from './SunGlow';
 import { SunSurface } from './SunSurface';
 import { Atmosphere, ATMOSPHERES } from './Atmosphere';
+import { SurfaceSites } from './SurfaceSites';
+import { getExploration } from '../data/missions';
 
 interface BodyProps {
   id: BodyId;
@@ -33,11 +36,17 @@ export function Body({ id, registry, onSelect }: BodyProps) {
   const lod = lodFor(id, phase, target);
   const textures = useBodyTexture(id, lod);
   const shading = useBodyShading(id, registry);
+  const relief = useMoonRelief(id);
+  const surfaceMaterial = useMemo(
+    () => (relief ? mergePatches([shading.surface, relief]) : shading.surface),
+    [shading.surface, relief]
+  );
 
   const radius = sceneRadiusOf(id);
   const isStar = record.kind === 'star';
   const atmosphere = ATMOSPHERES[id];
   const worldPosition = registry.get(id)!;
+  const sites = getExploration(id)?.sites ?? [];
 
   useFrame(() => {
     const position = registry.get(id);
@@ -66,7 +75,10 @@ export function Body({ id, registry, onSelect }: BodyProps) {
           <meshStandardMaterial
             key={`${textures.map?.uuid ?? 'flat'}-${textures.emissiveMap?.uuid ?? 'none'}`}
             map={textures.map ?? undefined}
-            color={textures.map ? '#ffffff' : record.color}
+            /* The registry colour is the fallback for a body with neither a
+               published map nor a generated surface; anything that supplies its
+               own albedo must not be tinted by it a second time. */
+            color={textures.map || relief ? '#ffffff' : record.color}
             emissiveMap={textures.emissiveMap ?? undefined}
             emissive={textures.emissiveMap ? new THREE.Color('#ffcf87') : new THREE.Color('#000000')}
             /* Confined to the night side by the shading patch, the lights can
@@ -75,9 +87,16 @@ export function Body({ id, registry, onSelect }: BodyProps) {
             emissiveIntensity={textures.emissiveMap ? 1.25 : 0}
             roughness={0.92}
             metalness={0}
-            onBeforeCompile={shading.surface.onBeforeCompile}
-            customProgramCacheKey={shading.surface.customProgramCacheKey}
+            onBeforeCompile={surfaceMaterial.onBeforeCompile}
+            customProgramCacheKey={surfaceMaterial.customProgramCacheKey}
           />
+        )}
+
+        {/* Children of the surface, so the sites turn with the ground they are
+            on. Only drawn for the body the camera has arrived at: from the
+            system view they would be a scatter of dots on a two-pixel disc. */}
+        {sites.length > 0 && phase === 'orbiting' && target === id && (
+          <SurfaceSites sites={sites} radius={radius} />
         )}
       </mesh>
 

@@ -161,6 +161,19 @@ export interface MaterialPatch {
   customProgramCacheKey: () => string;
 }
 
+/**
+ * Runs several patches over one material. Each is written to leave the chunks
+ * the others hook into intact, so they compose by being applied in order.
+ */
+export function mergePatches(patches: MaterialPatch[]): MaterialPatch {
+  return {
+    onBeforeCompile: (shader) => {
+      for (const patch of patches) patch.onBeforeCompile(shader);
+    },
+    customProgramCacheKey: () => patches.map((patch) => patch.customProgramCacheKey()).join('+')
+  };
+}
+
 export interface BodyShading {
   /** Patch for the body's own surface material. */
   surface: MaterialPatch;

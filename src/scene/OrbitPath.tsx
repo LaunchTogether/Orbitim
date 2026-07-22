@@ -55,8 +55,11 @@ export function OrbitPath({ id, date, highlighted }: OrbitPathProps) {
       points={points}
       color={record.color}
       transparent
-      opacity={highlighted ? 0.6 : 0.18}
-      lineWidth={highlighted ? 1.4 : 1}
+      /* The traces are scaffolding, not subject: faint enough that the planets
+         and the star field read first, and only the focused orbit is drawn up
+         to where it can be followed by eye. */
+      opacity={highlighted ? 0.34 : 0.075}
+      lineWidth={highlighted ? 1.2 : 0.9}
       depthWrite={false}
     />
   );

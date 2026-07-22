@@ -16,11 +16,10 @@ interface SimTimeState {
 export const useSimTime = create<SimTimeState>((set, get) => ({
   date: new Date(),
   playing: true,
-  // Real time makes every spin imperceptible; an hour a second makes Earth
-  // whirl. Five simulated minutes per second sits between the two: Earth turns
-  // once in about five minutes, Jupiter twice as fast, Venus barely at all —
-  // the true ratios, at a rate the eye reads as rotation rather than a blur.
-  multiplier: 300,
+  // The scene opens on the sky as it actually is, running at the rate it
+  // actually runs: what a visitor sees first is the real system at this
+  // instant, not a sped-up model of it. Every faster rate is one tap away.
+  multiplier: 1,
   advance: (realSeconds) => {
     const { playing, multiplier, date } = get();
     if (!playing) return;

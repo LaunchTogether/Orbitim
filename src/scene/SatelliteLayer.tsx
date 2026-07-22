@@ -8,6 +8,7 @@ import { useFlight } from '../flight/useFlight';
 import { useSimTime } from './useSimTime';
 import { getSatelliteGroup, useSatelliteGroups } from './satelliteGroups';
 import { useSatelliteSelection } from './satelliteSelection';
+import { useSiteSelection } from './siteSelection';
 import { SatelliteFocus } from './SatelliteFocus';
 import { EARTH_SCENE_RADIUS, KM_TO_SCENE, SGP4_EARTH_RADIUS_KM } from './satelliteFrame';
 import { graphicsTier, isTouchPrimary } from '../lib/device';
@@ -153,6 +154,9 @@ function SatelliteGroupPoints({ groupId }: { groupId: string }) {
     if (!propagate(data.satrec, useSimTime.getState().date)) return;
 
     event.stopPropagation();
+    // One dossier at a time: a satellite and a landing site are read in the same
+    // panel, so picking one has to let go of the other.
+    useSiteSelection.getState().clear();
     select({ groupId, data });
   };
 

@@ -6,12 +6,15 @@ import type { BodyId } from '../lib/ephemeris/bodies';
 export interface AtmosphereProfile {
   /** Scattering colour at the limb. */
   color: string;
-  /** Shell height as a fraction of the body radius. */
-  height: number;
-  /** Peak opacity at the limb. */
+  /**
+   * Height at which the air thins to 1/e of its density at the surface, as a
+   * fraction of the body radius. This is what sets how far the glow reaches and
+   * how gently it dies away — the one number that separates a soft envelope
+   * from a drawn-on ring.
+   */
+  scaleHeight: number;
+  /** Opacity where the shell meets the surface. */
   strength: number;
-  /** How tightly the glow hugs the limb. Higher is thinner and sharper. */
-  falloff: number;
 }
 
 /**
@@ -21,22 +24,26 @@ export interface AtmosphereProfile {
  * they get no shell at all rather than a decorative one.
  */
 export const ATMOSPHERES: Partial<Record<BodyId, AtmosphereProfile>> = {
-  venus: { color: '#f6dfa6', height: 0.045, strength: 0.68, falloff: 3.0 },
-  earth: { color: '#5fa8ff', height: 0.03, strength: 0.75, falloff: 3.6 },
-  mars: { color: '#e2a273', height: 0.028, strength: 0.42, falloff: 3.8 },
-  jupiter: { color: '#ffcf9b', height: 0.05, strength: 0.55, falloff: 3.0 },
-  saturn: { color: '#f6e5b4', height: 0.05, strength: 0.5, falloff: 3.0 },
-  uranus: { color: '#9ff0f5', height: 0.055, strength: 0.7, falloff: 2.8 },
-  neptune: { color: '#7aa6ff', height: 0.055, strength: 0.75, falloff: 2.8 },
-  titan: { color: '#f0b45f', height: 0.07, strength: 0.8, falloff: 2.6 }
+  venus: { color: '#f6dfa6', scaleHeight: 0.018, strength: 0.7 },
+  earth: { color: '#5fa8ff', scaleHeight: 0.013, strength: 0.62 },
+  mars: { color: '#e2a273', scaleHeight: 0.011, strength: 0.26 },
+  jupiter: { color: '#ffcf9b', scaleHeight: 0.012, strength: 0.32 },
+  saturn: { color: '#f6e5b4', scaleHeight: 0.012, strength: 0.28 },
+  uranus: { color: '#9ff0f5', scaleHeight: 0.015, strength: 0.34 },
+  neptune: { color: '#7aa6ff', scaleHeight: 0.015, strength: 0.34 },
+  titan: { color: '#f0b45f', scaleHeight: 0.026, strength: 0.45 }
 };
 
+/**
+ * Shell extent in scale heights. Past this the density is below a hundredth of
+ * its surface value and the geometry would only cost fill rate.
+ */
+const SHELL_EXTENT = 5;
+
 const VERTEX = /* glsl */ `
-  varying vec3 vNormalView;
   varying vec3 vPositionView;
 
   void main() {
-    vNormalView = normalize(normalMatrix * normal);
     vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
     vPositionView = viewPosition.xyz;
     gl_Position = projectionMatrix * viewPosition;
@@ -44,30 +51,44 @@ const VERTEX = /* glsl */ `
 `;
 
 /**
- * Limb glow. Opacity follows a Fresnel term so the shell is invisible face on
- * and brightest edge on, and is multiplied by the local sun angle so the night
- * side stays dark instead of ringing the planet in even light.
+ * Limb glow, integrated the way the real one is seen rather than painted onto
+ * the silhouette.
+ *
+ * Back faces are the only ones drawn, so the planet's own depth clips this to
+ * the annulus outside its disc. For each pixel of that annulus the view ray is
+ * traced past the body and its closest approach gives the altitude the line of
+ * sight grazes at; the air's density falls off exponentially with that
+ * altitude, exactly as an atmosphere's does. The result thins outward into
+ * nothing on its own, so there is no shell edge to see — where a Fresnel term
+ * on a fixed-radius shell would leave a hard-edged band of colour ringing the
+ * planet.
  */
 const FRAGMENT = /* glsl */ `
   uniform vec3 uColor;
   uniform float uStrength;
-  uniform float uFalloff;
+  uniform float uPlanetRadius;
+  uniform float uScaleHeight;
+  uniform vec3 uCenterView;
   uniform vec3 uSunDirectionView;
 
-  varying vec3 vNormalView;
   varying vec3 vPositionView;
 
   void main() {
-    vec3 normal = normalize(vNormalView);
-    vec3 viewDirection = normalize(-vPositionView);
-    float fresnel = pow(1.0 - abs(dot(normal, viewDirection)), uFalloff);
+    // The camera is the origin in view space, so the ray to this fragment is
+    // just its direction.
+    vec3 ray = normalize(vPositionView);
+    float along = dot(uCenterView, ray);
+    vec3 closest = ray * along;
+    float altitude = max(length(uCenterView - closest) - uPlanetRadius, 0.0);
+    float density = exp(-altitude / uScaleHeight);
 
-    // Forward scattering: the limb in front of the terminator glows hardest.
-    float sunAngle = dot(normal, normalize(uSunDirectionView));
-    float daylight = smoothstep(-0.45, 0.35, sunAngle);
+    // Lit at the altitude the sight line grazes, not at the shell's own surface:
+    // the terminator then cuts the glow where it cuts the ground beneath it.
+    vec3 limbNormal = normalize(closest - uCenterView);
+    float daylight = smoothstep(-0.32, 0.30, dot(limbNormal, uSunDirectionView));
 
-    float alpha = fresnel * uStrength * mix(0.06, 1.0, daylight);
-    if (alpha <= 0.001) discard;
+    float alpha = density * uStrength * mix(0.04, 1.0, daylight);
+    if (alpha <= 0.002) discard;
     gl_FragColor = vec4(uColor, alpha);
   }
 `;
@@ -82,28 +103,35 @@ interface AtmosphereProps {
 export function Atmosphere({ profile, radius, worldPosition }: AtmosphereProps) {
   const material = useRef<THREE.ShaderMaterial>(null);
   const sunDirection = useMemo(() => new THREE.Vector3(), []);
+  const center = useMemo(() => new THREE.Vector3(), []);
+  const scaleHeight = radius * profile.scaleHeight;
 
   const uniforms = useMemo(
     () => ({
       uColor: { value: new THREE.Color(profile.color) },
       uStrength: { value: profile.strength },
-      uFalloff: { value: profile.falloff },
+      uPlanetRadius: { value: radius },
+      uScaleHeight: { value: scaleHeight },
+      uCenterView: { value: new THREE.Vector3() },
       uSunDirectionView: { value: new THREE.Vector3(0, 0, 1) }
     }),
-    [profile]
+    [profile, radius, scaleHeight]
   );
 
   useFrame(({ camera }) => {
     if (!material.current) return;
     // The Sun sits at the world origin, so the direction to it is simply the
-    // body's own position negated, carried into view space for the shader.
+    // body's own position negated. Both it and the body's centre are carried
+    // into view space, which is the frame the shader traces its rays in.
     sunDirection.copy(worldPosition).negate().normalize().transformDirection(camera.matrixWorldInverse);
     material.current.uniforms.uSunDirectionView.value.copy(sunDirection);
+    center.copy(worldPosition).applyMatrix4(camera.matrixWorldInverse);
+    material.current.uniforms.uCenterView.value.copy(center);
   });
 
   return (
     <mesh>
-      <sphereGeometry args={[radius * (1 + profile.height), 64, 32]} />
+      <sphereGeometry args={[radius * (1 + profile.scaleHeight * SHELL_EXTENT), 64, 32]} />
       <shaderMaterial
         ref={material}
         uniforms={uniforms}

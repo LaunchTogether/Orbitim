@@ -14,6 +14,14 @@ const FLIGHT_SECONDS = 2.5;
 /** Camera distance when parked at a body, in body radii. */
 const ORBIT_RADII = 3.2;
 /**
+ * Closest the camera may be pulled to whatever it is framing, in radii of that
+ * body. Just outside the atmosphere shell, so a hard zoom stops at a limb
+ * filling the frame instead of passing through the surface into the interior.
+ */
+const MIN_APPROACH_RADII = 1.35;
+/** Same limit while riding a satellite, where the object itself is the subject. */
+const SATELLITE_MIN_DISTANCE = 40 * KM_TO_SCENE;
+/**
  * Camera distance when riding a satellite, km, and where it sits relative to the
  * object's own motion: mostly behind, partly above. Straight out from the planet
  * would put the camera's own horizon outside the frame at any distance close
@@ -191,6 +199,25 @@ export function CameraRig({ registry }: CameraRigProps) {
 
     if (target) lastFocus.current.copy(destinationLook);
 
+    // The zoom floor belongs to whatever is being framed, not to the scene: a
+    // single global minimum is either too far out to approach Phobos or close
+    // enough to put the camera inside Jupiter. Recomputed each frame because
+    // the thing in frame changes as the visitor moves between them.
+    orbitControls.minDistance = riding
+      ? SATELLITE_MIN_DISTANCE
+      : sceneRadiusOf(target ?? 'sun') * MIN_APPROACH_RADII;
+    // Clamping only the input leaves a camera that was already inside the floor
+    // — arriving from a flight, or switching focus — stuck there, so push it
+    // back out along its own view direction. A flight owns the camera outright
+    // and its arc is allowed to pass close to bodies it is not heading for.
+    const gap = camera.position.distanceTo(orbitControls.target);
+    if (phase !== 'flying' && gap < orbitControls.minDistance) {
+      camera.position
+        .sub(orbitControls.target)
+        .setLength(orbitControls.minDistance)
+        .add(orbitControls.target);
+    }
+
     // Keep depth precision usable across eight orders of magnitude of distance.
     const perspective = camera as THREE.PerspectiveCamera;
     const distance = camera.position.distanceTo(orbitControls.target);
@@ -212,7 +239,7 @@ export function CameraRig({ registry }: CameraRigProps) {
          spins the system past the body it was aimed at. */
       rotateSpeed={isTouchPrimary ? 0.55 : 1}
       zoomSpeed={isTouchPrimary ? 0.7 : 1}
-      minDistance={0.02}
+      /* `minDistance` is set per frame from whatever is in frame; see the rig. */
       maxDistance={4000}
       makeDefault
     />
